@@ -1,6 +1,7 @@
 #pragma once
 #include <iostream>
 #include <memory>
+#include <Windows.h>
 
 #define IN 
 #define OUT
@@ -44,4 +45,30 @@ bool write_data_file(const wchar_t* path, const void* data, const int& nsize)
 
     fclose(file);
     return true;
+}
+
+//@brief  : Create list folder follow path
+//@return  true : exist /
+//         false: not exist
+bool create_directory_recursive(const std::wstring& path)
+{
+    BOOL bret = CreateDirectory(path.c_str(), NULL);
+
+    if (bret)  return TRUE;
+    else
+    {
+        DWORD dwErr = GetLastError();
+        if (dwErr == ERROR_ALREADY_EXISTS)
+            return TRUE;
+        if ((dwErr == ERROR_PATH_NOT_FOUND || dwErr == ERROR_FILE_NOT_FOUND))
+        {
+            std::wstring subpath = path.substr(0, path.find_last_of('\\'));
+
+            if (create_directory_recursive(subpath))
+            {
+                return CreateDirectory(path.c_str(), NULL);
+            }
+        }
+    }
+    return FALSE;
 }
