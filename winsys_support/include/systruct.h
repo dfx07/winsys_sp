@@ -1,9 +1,10 @@
 #pragma once
 
 #include <iostream>
+#include <vector>
 
-// Buffer 
-class Buffer
+// CBuffer 
+class CBuffer
 {
 private:
 	//@brief  free memory the buffer
@@ -47,18 +48,18 @@ private:
 	}
 
 public:
-	Buffer():
+	CBuffer():
 		m_data(NULL), m_capacity(0), m_length(0)
 	{
 
 	}
 
-	Buffer(const void* data, const int nsize)
+	CBuffer(const void* data, const int nsize)
 	{
 		set(data, nsize);
 	}
 
-	~Buffer()
+	~CBuffer()
 	{
 		this->free();
 	}
@@ -104,6 +105,46 @@ private:
 	char*	m_data;
 	int		m_capacity;
 	int		m_length;
+};
+
+class CFileBuffer
+{
+private:
+	std::vector<unsigned char> m_data;
+
+public:
+	CFileBuffer(const int& nsize = 0)
+	{
+		resize(nsize);
+	}
+public:
+	void resize(const int& nsize)
+	{
+		m_data.resize(nsize);
+	}
+
+	void set(void* data, const int& nsize)
+	{
+		// set data for vector data have null
+		resize(nsize + 1);
+		reset(nsize + 1, 0);
+		memcpy_s(&m_data[0], nsize, data, nsize);
+		// reset length vector data
+		resize(nsize);
+	}
+
+	void reset()
+	{
+		m_data.clear();
+	}
+
+	void reset(const int nsize, const int& val = 0)
+	{
+		memset(&m_data[0], val, nsize);
+	}
+public:
+	void* get() { return !m_data.empty() ? &m_data[0] : NULL; }
+	int   size() { return  m_data.size(); }
 };
 
 
