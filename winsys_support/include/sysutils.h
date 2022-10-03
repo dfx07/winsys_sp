@@ -9,10 +9,11 @@
 #define IN  /*INPUT */
 #define OUT /*OUTPUT*/
 
-//*****************************************************************************
-// @brief  read bytes data file
-// @return int : nsize / data : buff
-//*****************************************************************************
+/******************************************************************************
+*! @brief  : Read bytes data file
+*! @author : thuong.nv - [Date] : 03/10/2022
+*! @return : int : nsize / data : buff
+******************************************************************************/
 int read_data_file(IN const wchar_t* path, OUT void** data)
 {
     if (data) *data = NULL;
@@ -59,10 +60,11 @@ CFileBuffer* read_data_file(IN const wchar_t* path)
     return cfbuff;
 }
 
-//*****************************************************************************
-// @brief write data to file binary
-// @return true | false
-//*****************************************************************************
+/******************************************************************************
+*! @brief  : Write data to file binary
+*! @author : thuong.nv - [Date] : 03/10/2022
+*! @return : true | false
+******************************************************************************/
 bool write_data_file(IN const wchar_t* path, IN const void* data, IN const int& nsize)
 {
     FILE* file = _wfsopen(path, L"wb", SH_DENYNO);
@@ -74,10 +76,11 @@ bool write_data_file(IN const wchar_t* path, IN const void* data, IN const int& 
     return true;
 }
 
-//*****************************************************************************
-//@brief  : Create list folder follow path
-//@return  true : exist / false: not exist
-//*****************************************************************************
+/******************************************************************************
+*! @brief  : Create list folder follow path
+*! @author : thuong.nv - [Date] : 03/10/2022
+*! @return : true : exist / false: not exist
+******************************************************************************/
 bool create_directory_recursive(IN const std::wstring& path)
 {
     BOOL bret = CreateDirectory(path.c_str(), NULL);
@@ -101,10 +104,11 @@ bool create_directory_recursive(IN const std::wstring& path)
     return false;
 }
 
-//*****************************************************************************
-//@brief  : Convert char to wchar_t
-//@return : bytes array
-//*****************************************************************************
+/******************************************************************************
+*! @brief  : Convert char to wchar_t
+*! @author : thuong.nv - [Date] : 03/10/2022
+*! @return : bytes array
+******************************************************************************/
 std::wstring from_utf8(IN const std::string& utf8)
 {
     std::wstring utf16;
@@ -125,10 +129,11 @@ std::wstring from_utf8(IN const char* utf8, IN const int& nsize)
     return utf16;
 }
 
-//*****************************************************************************
-//@brief  : Convert char to wchar_t
-//@return : bytes array
-//*****************************************************************************
+/******************************************************************************
+*! @brief  : Convert char to wchar_t
+*! @author : thuong.nv - [Date] : 03/10/2022
+*! @return : bytes array
+******************************************************************************/
 std::string to_utf8(IN const std::wstring& mb)
 {
     std::string utf8;
@@ -139,11 +144,12 @@ std::string to_utf8(IN const std::wstring& mb)
     return utf8;
 }
 
-//*****************************************************************************
-//@brief  : Check array bytes is utf8
-//@return : 1 : utf8 | 0 : no utf8
-//@note   : https://unicodebook.readthedocs.io/guess_encoding.html
-//*****************************************************************************
+/******************************************************************************
+*! @brief  : Check array bytes is utf8
+*! @author : thuong.nv - [Date] : 03/10/2022
+*! @return : 1 : utf8 | 0 : no utf8
+*! @note   : https://unicodebook.readthedocs.io/guess_encoding.html
+******************************************************************************/
 int is_utf8(const char* data, size_t size)
 {
     const unsigned char* str = (unsigned char*)data;
@@ -217,11 +223,12 @@ int is_utf8(const char* data, size_t size)
     return 1;
 }
 
-//*****************************************************************************
-//@brief  : Check array bytes is ascii character
-//@return : 1 : ascii | 0 : no ascii
-//@note   : https://unicodebook.readthedocs.io/guess_encoding.html
-//*****************************************************************************
+/******************************************************************************
+*! @brief  : Check array bytes is ascii character
+*! @author : thuong.nv - [Date] : 03/10/2022
+*! @return : 1 : ascii | 0 : no ascii
+*! @note   : https://unicodebook.readthedocs.io/guess_encoding.html
+******************************************************************************/
 int is_ascii(const char* data, size_t size)
 {
     const unsigned char* str = (const unsigned char*)data;
@@ -231,4 +238,82 @@ int is_ascii(const char* data, size_t size)
             return 0;
     }
     return 1;
+}
+
+/***************************************************************************
+*! @brief  : Get encoding use bom bytes
+*! @author : thuong.nv - [Date] : 03/10/2022
+*! @return : ANSI=0 | UTF-8=1 | UTF-16LE=2 | UTF-16BE=3 | UTF-32LE=4 | UTF-32BE=5
+*! @note   : N/A
+***************************************************************************/
+int encoding_bytes_bom(unsigned char* _bytes, const int& _size)
+{
+    if (!_bytes || !_size) return 0;
+
+    unsigned char utf8[]    = { 0xEF, 0xBB, 0xBF };
+    unsigned char utf16le[] = { 0xFF, 0xFE };
+    unsigned char utf16be[] = { 0xFE, 0xFF };
+    unsigned char utf32le[] = { 0xFF, 0xFE, 0x00, 0x00 };
+    unsigned char utf32be[] = { 0x00, 0x00, 0xFE, 0xFF };
+
+    if (_size >= 3)
+    {
+        // utf-8
+        if (_bytes[0] == utf8[0] && _bytes[1] == utf8[1] &&
+            _bytes[2] == utf8[2])
+            return 1;
+    }
+    if (_size >= 4)
+    {
+        // utf-32le
+        if (_bytes[0] == utf32le[0] && _bytes[1] == utf32le[1] &&
+            _bytes[2] == utf32le[2] && _bytes[3] == utf32le[3])
+            return 4;
+
+        // utf-32be
+        if (_bytes[0] == utf32be[0] && _bytes[1] == utf32be[1] &&
+            _bytes[2] == utf32be[2] && _bytes[3] == utf32be[3])
+            return 5;
+    }
+    if (_size >= 2)
+    {
+        // utf-16le
+        if (_bytes[0] == utf16le[0] && _bytes[1] == utf16le[1])
+            return 2;
+
+        // utf-16be
+        if (_bytes[0] == utf16be[0] && _bytes[1] == utf16be[1])
+            return 3;
+    }
+
+    return 0; // ansi
+}
+
+/***************************************************************************
+*! @brief  : Check system endian is using
+*! @author : thuong.nv - [Date] : 03/10/2022
+*! @param  : void
+*! @return : 0 =little endian , 1 =big endian
+***************************************************************************/
+int system_endian()
+{
+    // little endian if true
+    int n = 1;
+    return (*(char*)&n == 1) ? 0 : 1;
+}
+
+/***************************************************************************
+*! @brief  : reverse 16 bit 8H<->8L
+*! @author : thuong.nv - [Date] : 03/10/2022
+*! @param  : wchar_t character
+*! @return : 0 :little endian , 1 :big endian
+*! @note   : N/A
+***************************************************************************/
+void reverse_byte_16(wchar_t* ch)
+{
+    *ch = ((*ch << 8) | (*ch >> 8));
+}
+wchar_t reverse_byte_16x(wchar_t* ch)
+{
+    return (*ch >> 8) | (*ch << 8);
 }
