@@ -17,6 +17,10 @@ class CDataTable;
 typedef std::shared_ptr<CDataRow>   CDataRowPtr;
 typedef std::shared_ptr<CDataTable> CDataTablePtr;
 
+//==========================================================================
+// Class CDataValue
+// Support data : int, double, array, object, bool
+//==========================================================================
 class CDataValue
 {
 private:
@@ -174,6 +178,10 @@ public:
 	int   GetBlobSize()const { return m_nsize;  }
 };
 
+//==========================================================================
+// Class CDataRow
+// Support : index cell + data cell
+//==========================================================================
 class CDataRow
 {
 	std::map<const std::string, std::shared_ptr<CDataValue>> m_data;
@@ -292,6 +300,10 @@ public:
 	}
 };
 
+//==========================================================================
+// Class CDataTable
+// Contain data : string , wstring , object, arithmetic type
+//==========================================================================
 class CDataTable
 {
 	std::vector<CDataRowPtr> m_data;

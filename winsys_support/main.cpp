@@ -11,7 +11,6 @@ public:
 
 int function()
 {
-    A* a = new A();
     auto row = CDataRow::CreateInstance();
 
     row->Add("column 4", L"thuong");
