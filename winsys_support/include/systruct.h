@@ -144,7 +144,7 @@ public:
 	}
 public:
 	void* get() { return !m_data.empty() ? &m_data[0] : NULL; }
-	int   size() { return  m_data.size(); }
+	int   size(){ return (int)m_data.size(); }
 };
 
 

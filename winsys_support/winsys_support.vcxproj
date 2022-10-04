@@ -142,6 +142,7 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\dbstruct.h" />
     <ClInclude Include="include\systruct.h" />
     <ClInclude Include="include\sysutils.h" />
   </ItemGroup>
