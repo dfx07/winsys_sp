@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <vector>
+#include <chrono>
 
 // CBuffer 
 class CBuffer
@@ -147,5 +148,33 @@ public:
 	int   size(){ return (int)m_data.size(); }
 };
 
+
+class CTimer
+{
+	typedef std::chrono::steady_clock::time_point TimePointer;
+
+private:
+	TimePointer m_tstart;
+
+public:
+	CTimer()
+	{
+		reset();
+	}
+public:
+	void reset()
+	{
+		m_tstart = std::chrono::high_resolution_clock::now();
+	}
+	
+	double duration()
+	{
+		TimePointer tend = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double> elapsed = tend - m_tstart;
+
+		m_tstart = tend;
+		return elapsed.count();
+	}
+};
 
 // 

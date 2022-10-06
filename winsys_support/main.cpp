@@ -2,31 +2,64 @@
 //#include "include/systruct.h"
 #include "include/sysutils.h"
 #include "include/dbstruct.h"
+#include <thread>
 
-class A
+class Object
 {
+    int m_data = 100;
 public:
-    int c = 10;
+    void Update()
+    {
+        m_data++;
+
+        if (m_data > 20)
+        {
+            m_data = 0;
+        }
+    }
+
+    int getdata()
+    {
+        return m_data;
+    }
 };
 
-int function()
+Object obj;
+
+void process_time()
 {
-    auto row = CDataRow::CreateInstance();
+    for (;;)
+    {
+        for (int j = 0; j < 100000000; j++)
+        {
+            for (int jj = 0; jj < 100000000; jj++)
+            {
+                int c = 100;
+            }
+            int a = 10;
+        }
+        obj.Update();
+    }
+}
 
-    row->Add("column 4", L"thuong");
-
-    CDataTable table;
-    
-    table.AddRow(row);
-
-
-    auto obj = table.SingleOrDefault<wchar_t*>(nullptr);
-   // obj->c = 100000;
-    return 0;
+void process_output()
+{
+    CTimer timer;
+    timer.reset();
+    while (true)
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        int a = obj.getdata();
+        std::cout << timer.duration() << std::endl;
+    }
 }
 
 int main()
 {
-    function();
+    std::thread t(process_time);
+    std::thread t1(process_output);
+    t.join();
+    t1.join();
+
     getchar();
 }
