@@ -223,7 +223,15 @@ public:
 		auto found = m_data.find(key);
 		if (found != m_data.end())
 		{
-			auto a =std::remove(m_data_index.begin(), m_data_index.end(), found->second);
+			for (auto it = m_data_index.begin(); it != m_data_index.end();)
+			{
+				if (*it == found->second)
+				{
+					m_data_index.erase(it);
+				}
+				else
+					++it;
+			}
 			m_data.erase(key);
 		}
 	}

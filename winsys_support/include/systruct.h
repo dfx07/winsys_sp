@@ -1,8 +1,9 @@
-#pragma once
+﻿#pragma once
 
 #include <iostream>
 #include <vector>
 #include <chrono>
+#include <ctime>
 
 // CBuffer 
 class CBuffer
@@ -151,7 +152,7 @@ public:
 
 class CTimer
 {
-	typedef std::chrono::steady_clock::time_point TimePointer;
+	typedef std::chrono::steady_clock::time_point	TimePointer;
 
 private:
 	TimePointer m_tstart;
@@ -162,18 +163,121 @@ public:
 		reset();
 	}
 public:
+	static TimePointer now()
+	{
+		return std::chrono::high_resolution_clock::now();
+	}
+
+	// default format : "%Y-%m-%d %X"
+	// ref : https://www.programiz.com/python-programming/datetime/strftime
+	static std::string time_now(const char* format = "%Y-%m-%d %X")
+	{
+		auto now = std::chrono::system_clock::now();
+		std::time_t end_time = std::chrono::system_clock::to_time_t(now);
+
+		struct tm  tstruct;
+		auto err = localtime_s(&tstruct, &end_time);
+		char buffer[128];
+		memset(buffer, 0, sizeof(buffer));
+
+		strftime(buffer, sizeof(buffer), format , &tstruct);
+
+		return std::string(buffer);
+	}
+
 	void reset()
 	{
 		m_tstart = std::chrono::high_resolution_clock::now();
 	}
 	
-	double duration()
+	double seconds_elapsed()
 	{
 		TimePointer tend = std::chrono::high_resolution_clock::now();
 		std::chrono::duration<double> elapsed = tend - m_tstart;
-
 		m_tstart = tend;
 		return elapsed.count();
+	}
+
+	double mili_elapsed()
+	{
+		auto elp = seconds_elapsed();
+		return elp * 1000.0;
+	}
+};
+
+class CStopwatch
+{
+	typedef std::chrono::steady_clock::time_point	TimePointer;
+	typedef std::chrono::duration<double>			SElapsed;
+private:
+	TimePointer	m_start;
+	TimePointer	m_tpre;
+
+	double		m_tstop;
+
+	double		m_dur;
+	bool		m_bstop;
+
+public:
+	CStopwatch() : m_dur(0.0),
+		m_tstop(0.0), m_bstop(true)
+	{
+
+	}
+
+public:
+	void start()
+	{
+		m_bstop  = false;
+		m_start  = std::chrono::high_resolution_clock::now();
+		m_tpre   = m_start;
+		m_dur    = 0.0;
+		m_tstop  = 0.0;
+	}
+
+	void stop()
+	{
+		auto tps = std::chrono::high_resolution_clock::now();
+		SElapsed elapsed = tps - m_tpre;
+		m_tstop = elapsed.count();
+		m_bstop = true;
+	}
+	void resume()
+	{
+		m_tpre = std::chrono::high_resolution_clock::now();
+		m_bstop = false;
+	}
+
+	double lap()
+	{
+		auto tps = std::chrono::high_resolution_clock::now();
+		SElapsed elapsed = tps - m_tpre;
+		m_dur = elapsed.count() + m_tstop;
+		m_tstop = 0.0;
+		m_tpre = tps;
+
+		return m_dur;
+	}
+
+	bool is_stop()
+	{
+		return m_bstop;
+	}
+
+	double all_time()
+	{
+		SElapsed elapsed = std::chrono::high_resolution_clock::now() - m_start;
+		return elapsed.count();
+	}
+
+	double seconds_elapsed()
+	{
+		return m_dur;
+	}
+
+	double mili_elapsed()
+	{
+		return m_dur*1000.0;
 	}
 };
 

@@ -28,16 +28,10 @@ Object obj;
 
 void process_time()
 {
+	CStopwatch sw;
     for (;;)
     {
-        for (int j = 0; j < 100000000; j++)
-        {
-            for (int jj = 0; jj < 100000000; jj++)
-            {
-                int c = 100;
-            }
-            int a = 10;
-        }
+
         obj.Update();
     }
 }
@@ -48,9 +42,9 @@ void process_output()
     timer.reset();
     while (true)
     {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        int a = obj.getdata();
-        std::cout << timer.duration() << std::endl;
+        //std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        //int a = obj.getdata();
+        //std::cout << timer.mili_elapsed() << std::endl;
     }
 }
 
@@ -58,6 +52,7 @@ int main()
 {
     std::thread t(process_time);
     std::thread t1(process_output);
+	std::cout << CTimer::time_now("%X").c_str() << std::endl;
     t.join();
     t1.join();
 

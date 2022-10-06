@@ -97,7 +97,7 @@ bool create_directory_recursive(IN const std::wstring& path)
 
             if (create_directory_recursive(subpath))
             {
-                return CreateDirectory(path.c_str(), NULL);
+                return CreateDirectory(path.c_str(), NULL)? true : false;
             }
         }
     }
