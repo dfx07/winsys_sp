@@ -27,6 +27,9 @@
     <ClInclude Include="include\dbstruct.h">
       <Filter>Header Files\common</Filter>
     </ClInclude>
+    <ClInclude Include="include\sysreport.h">
+      <Filter>Header Files\common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">

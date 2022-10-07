@@ -143,6 +143,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\dbstruct.h" />
+    <ClInclude Include="include\sysreport.h" />
     <ClInclude Include="include\systruct.h" />
     <ClInclude Include="include\sysutils.h" />
   </ItemGroup>

@@ -3,6 +3,8 @@
 #include <memory>
 #include <Windows.h>
 #include <stdint.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include "systruct.h"
 
@@ -316,4 +318,122 @@ void reverse_byte_16(wchar_t* ch)
 wchar_t reverse_byte_16x(wchar_t* ch)
 {
     return (*ch >> 8) | (*ch << 8);
+}
+
+/***************************************************************************
+*! @brief  : check directory path is exist
+*! @author : thuong.nv - [Date] : 07/10/2022
+*! @param  : fpath : path
+*! @return : true/false => exist/not exist
+*! @note   : N/A
+***************************************************************************/
+bool is_directory_exist(const std::wstring& fpath)
+{
+    DWORD attr = ::GetFileAttributes(fpath.c_str());
+
+    if (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY))
+        return true;
+    return false;
+}
+/***************************************************************************
+*! @brief  : check file path is exist
+*! @author : thuong.nv - [Date] : 07/10/2022
+*! @param  : fpath : path
+*! @return : true/false => exist/not exist
+*! @note   : N/A
+***************************************************************************/
+bool is_file_exist(const std::wstring& pfile)
+{
+    DWORD attr = ::GetFileAttributes(pfile.c_str());
+
+    if (attr != INVALID_FILE_ATTRIBUTES && !(attr & FILE_ATTRIBUTE_DIRECTORY))
+        return true;
+    return false;
+}
+
+/***************************************************************************
+*! @brief  : get file name for path (not check exist)
+*! @author : thuong.nv - [Date] : 07/10/2022
+*! @param    [In] fpath : path string
+*! @param    [In] bExt  : get extesion file
+*! @return : T ( string | wstring )
+*! @note   : support (string , wstring)
+***************************************************************************/
+template<typename T>
+auto get_filename_path(const T& fpath, const int& bExt = false) 
+    -> std::enable_if_t<std::is_same<std::wstring, T>::value |
+                        std::is_same<std::string , T>::value, T>
+//typename std::enable_if < std::is_same<std::wstring, T>::value |
+// std::is_same<std::string , T>::value , T > ::type* = nullptr >
+{
+    auto  ifound1  = fpath.find_last_of('\\');
+    auto  ifound2  = fpath.find_last_of('/');
+    auto ifound = T::npos;
+
+    if (ifound1 == T::npos)
+        ifound = ifound2;
+    else if (ifound2 == T::npos)
+        ifound = ifound1;
+    else
+        ifound = (ifound2 > ifound1) ? ifound2 : ifound1;
+
+    if (ifound == T::npos)
+        return T();
+
+    ifound += 1;
+    T filename = fpath.substr(ifound, fpath.length() - ifound);
+
+    auto iext = filename.find_last_of('.');
+    if (iext == T::npos)
+        return T();
+
+    if (!bExt) // not extension
+        filename = filename.substr(0, iext);
+
+    return filename;
+}
+
+/***************************************************************************
+*! @brief  : get file name for path (not check exist)
+*! @author : thuong.nv - [Date] : 07/10/2022
+*! @param    [In] fpath : path string
+*! @param    [In] bExt  : get extesion file
+*! @return : T ( string | wstring )
+*! @note   : support (string , wstring)
+***************************************************************************/
+template<typename T>
+auto get_folder_path(const T& fpath, const int& bCheckExist = false) 
+    -> std::enable_if_t<std::is_same<std::wstring, T>::value |
+                        std::is_same<std::string , T>::value, T>
+//typename std::enable_if < std::is_same<std::wstring, T>::value |
+// std::is_same<std::string , T>::value , T > ::type* = nullptr >
+{
+    auto  ifound1  = fpath.find_last_of('\\');
+    auto  ifound2  = fpath.find_last_of('/');
+    auto ifound = T::npos;
+
+    if (ifound1 == T::npos)
+        ifound = ifound2;
+    else if (ifound2 == T::npos)
+        ifound = ifound1;
+    else
+        ifound = (ifound2 > ifound1) ? ifound2 : ifound1;
+
+    if (ifound == T::npos)
+        return T();
+
+    ifound += 1;
+    T filename = fpath.substr(ifound, fpath.length() - ifound);
+
+    T path;
+    auto iext = filename.find_last_of('.');
+    if (iext == T::npos)
+        path = fpath;
+
+    path = fpath.substr(0, ifound);
+
+    if (bCheckExist && !is_directory_exist(fpath))
+        return T();
+
+    return T(path);
 }

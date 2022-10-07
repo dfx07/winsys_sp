@@ -3,6 +3,7 @@
 #include "include/sysutils.h"
 #include "include/dbstruct.h"
 #include <thread>
+#include "include/sysreport.h"
 
 class Object
 {
@@ -53,13 +54,34 @@ void process_output()
         std::cout << timer.duration() << std::endl;
     }
 }
+class A
+{
+public:
+    int a;
+};
 
 int main()
 {
-    std::thread t(process_time);
-    std::thread t1(process_output);
-    t.join();
-    t1.join();
+    //std::thread t(process_time);
+    //std::thread t1(process_output);
+    //t.join();
+    //t1.join();
 
+    //SetUnhandledExceptionFilter(handle_crash);
+
+    //handle_crash(NULL);
+
+    //A* a = NULL;
+    //int c = a->a;
+
+    //bool b = is_directory_exist(std::wstring( L""));
+
+
+    auto b = get_folder_path(std::wstring(L"C:\\Users\\Mark\\Desktop1\\delta.cpp"));
+
+
+
+    int a = 100;
+    int c = a *2;
     getchar();
 }
