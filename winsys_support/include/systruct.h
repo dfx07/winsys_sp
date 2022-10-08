@@ -5,6 +5,10 @@
 #include <chrono>
 #include <ctime>
 
+#include "xsysdef.h"
+
+___NAMESPACE_BEGIN___
+
 // CBuffer 
 class CBuffer
 {
@@ -207,11 +211,11 @@ public:
 
 class CStopwatch
 {
-	typedef std::chrono::steady_clock::time_point	TimePointer;
-	typedef std::chrono::duration<double>			SElapsed;
+	typedef std::chrono::steady_clock::time_point	time_pointer;
+	typedef std::chrono::duration<double>			tduration;
 private:
-	TimePointer	m_start;
-	TimePointer	m_tpre;
+	time_pointer	m_start;
+	time_pointer	m_tpre;
 
 	double		m_tstop;
 
@@ -238,7 +242,7 @@ public:
 	void stop()
 	{
 		auto tps = std::chrono::high_resolution_clock::now();
-		SElapsed elapsed = tps - m_tpre;
+		tduration elapsed = tps - m_tpre;
 		m_tstop = elapsed.count();
 		m_bstop = true;
 	}
@@ -251,7 +255,7 @@ public:
 	double lap()
 	{
 		auto tps = std::chrono::high_resolution_clock::now();
-		SElapsed elapsed = tps - m_tpre;
+		tduration elapsed = tps - m_tpre;
 		m_dur = elapsed.count() + m_tstop;
 		m_tstop = 0.0;
 		m_tpre = tps;
@@ -266,7 +270,7 @@ public:
 
 	double all_time()
 	{
-		SElapsed elapsed = std::chrono::high_resolution_clock::now() - m_start;
+		tduration elapsed = std::chrono::high_resolution_clock::now() - m_start;
 		return elapsed.count();
 	}
 
@@ -281,4 +285,67 @@ public:
 	}
 };
 
+class CFPSCouter
+{
+	typedef std::chrono::steady_clock::time_point	  time_pointer;
+	typedef std::chrono::duration<double>			  tduration;
+
+private:
+	int				m_fps;
+	int				m_frames;
+	double			m_elapsed;
+
+	time_pointer	m_last_frame;
+
+	double			m_reset;
+
+private:
+	void reset()
+	{
+		m_frames = 0;
+		m_reset  = 0.0;
+	}
+public:
+	CFPSCouter() : m_fps(0), m_elapsed(0.0),
+		m_reset(0.0), m_frames(0)
+	{
+
+	}
+
+	void start()
+	{
+		m_last_frame = std::chrono::high_resolution_clock::now();
+		this->reset();
+	}
+
+	void update()
+	{
+		time_pointer cur_frame = std::chrono::high_resolution_clock::now();
+		m_elapsed = tduration(cur_frame - m_last_frame).count();
+		m_reset  += m_elapsed;
+
+		m_frames++;
+
+		if (m_reset >= 1.0)
+		{
+			m_fps = (int)(m_frames / m_reset);
+			this->reset();
+		}
+
+		m_last_frame = cur_frame;
+	}
+
+public:
+	int fps()
+	{
+		return this->m_fps;
+	}
+	double elapsed() //miliseconds
+	{
+		return this->m_elapsed;
+	}
+};
+
+
+___NAMESPACE_END___
 // 

@@ -1,9 +1,10 @@
 ﻿#include <iostream>
-//#include "include/systruct.h"
 #include "include/sysutils.h"
 #include "include/dbstruct.h"
 #include <thread>
 #include "include/sysreport.h"
+
+___USELIBFOX____;
 
 class Object
 {
@@ -56,27 +57,19 @@ public:
 
 int main()
 {
-    std::thread t(process_time);
-    std::thread t1(process_output);
-	std::cout << CTimer::time_now("%X").c_str() << std::endl;
-    t.join();
-    t1.join();
-
-    //SetUnhandledExceptionFilter(handle_crash);
-
-    //handle_crash(NULL);
-
-    //A* a = NULL;
-    //int c = a->a;
-
-    //bool b = is_directory_exist(std::wstring( L""));
-
-
-    auto b = get_folder_path(std::wstring(L"C:\\Users\\Mark\\Desktop1\\delta.cpp"));
-
-
-
-    int a = 100;
-    int c = a *2;
+	fox::CFPSCouter counter;
+	counter.start();
+	while (true)
+	{
+		counter.update();
+		std::cout << counter.elapsed() << std::endl;
+		for (int i = 0; i < 1000000; i++)
+		{
+			//for (int j = 0; j < 1000; j++)
+			//{
+			//	int c = 10;
+			//}
+		}
+	}
     getchar();
 }

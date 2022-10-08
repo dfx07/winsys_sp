@@ -5,9 +5,13 @@
 #include <map>
 #include <assert.h>
 
+#include "xsysdef.h"
+
 /*
 	1/ data value
 */
+
+___NAMESPACE_BEGIN___
 
 class CDataValue;
 class CDataRow;
@@ -426,5 +430,4 @@ public:
 	}
 };
 
-
-
+___NAMESPACE_END___

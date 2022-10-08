@@ -6,6 +6,7 @@
 #include <tchar.h>
 #include "sysutils.h"
 
+___NAMESPACE_BEGIN___
 
 // define function create dump file
 typedef BOOL(WINAPI* MINIDUMPWRITEDUMP)(
@@ -21,13 +22,11 @@ typedef BOOL(WINAPI* MINIDUMPWRITEDUMP)(
 // - setup application : Windpb preview
 // - run program to crash ->*.dmp
 // - analysis and export file *.txt
-void create_dump_file(const std::wstring& path, struct _EXCEPTION_POINTERS* apExceptionInfo)
+bool create_dump_file(const std::wstring& path, struct _EXCEPTION_POINTERS* apExceptionInfo)
 {
-
-
     HMODULE mhLib = ::LoadLibrary(_T("dbghelp.dll"));
     if (!mhLib)
-        return;
+        return false;
     auto pDump = (MINIDUMPWRITEDUMP)(::GetProcAddress(mhLib, "MiniDumpWriteDump"));
 
     HANDLE  hFile = ::CreateFile(path.c_str(), GENERIC_WRITE, FILE_SHARE_WRITE, NULL, CREATE_ALWAYS,
@@ -44,23 +43,32 @@ void create_dump_file(const std::wstring& path, struct _EXCEPTION_POINTERS* apEx
 
         pDump(GetCurrentProcess(), GetCurrentProcessId(), hFile, mdt, &ExInfo, NULL, NULL);
         ::CloseHandle(hFile);
+
+		return true;
     }
-    return;
+    return false;
 }
 
 // handle crash program
+// Please use if hanlde crash: SetUnhandledExceptionFilter(handle_crash);
 LONG WINAPI handle_crash(struct _EXCEPTION_POINTERS* apExceptionInfo)
 {
     TCHAR	szAppFullPath[MAX_PATH] = L"";
     ::GetModuleFileName(NULL, szAppFullPath, MAX_PATH);
 
-    std::wstring dumpfileFolder = L"";
+    std::wstring dumpfileFolder = get_folder_path<std::wstring>(szAppFullPath);
     std::wstring dumpfileName = get_filename_path<std::wstring>(szAppFullPath);
+	MessageBox(NULL, L"The program terminates abnormally, please restart !", L"Crash", MB_ICONHAND | MB_OK);
 
-    if (dumpfileName.empty())
-        return -1;
+	if (dumpfileName.empty() || dumpfileFolder.empty())
+        return EXCEPTION_CONTINUE_EXECUTION;
+	dumpfileFolder.append(L"DumpLoger\\");
 
-    create_dump_file(dumpfileFolder.append(dumpfileName), apExceptionInfo);
+	if (!create_directory_recursive(dumpfileFolder))
+		return EXCEPTION_CONTINUE_EXECUTION;
+
+    create_dump_file(dumpfileFolder.append(dumpfileName.append(L".dmp")), apExceptionInfo);
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
+___NAMESPACE_END___

@@ -30,6 +30,9 @@
     <ClInclude Include="include\sysreport.h">
       <Filter>Header Files\common</Filter>
     </ClInclude>
+    <ClInclude Include="include\xsysdef.h">
+      <Filter>Header Files\common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">

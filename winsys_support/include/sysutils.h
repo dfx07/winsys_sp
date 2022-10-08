@@ -6,10 +6,11 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include "xsysdef.h"
 #include "systruct.h"
 
-#define IN  /*INPUT */
-#define OUT /*OUTPUT*/
+
+___NAMESPACE_BEGIN___
 
 /******************************************************************************
 *! @brief  : Read bytes data file
@@ -437,3 +438,5 @@ auto get_folder_path(const T& fpath, const int& bCheckExist = false)
 
     return T(path);
 }
+
+___NAMESPACE_END___
