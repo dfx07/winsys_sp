@@ -241,6 +241,9 @@ public:
 
 	void stop()
 	{
+		if (m_bstop)
+			return;
+
 		auto tps = std::chrono::high_resolution_clock::now();
 		tduration elapsed = tps - m_tpre;
 		m_tstop = elapsed.count();
@@ -248,12 +251,17 @@ public:
 	}
 	void resume()
 	{
+		if (!m_bstop)
+			return;
 		m_tpre = std::chrono::high_resolution_clock::now();
 		m_bstop = false;
 	}
 
 	double lap()
 	{
+		if (m_bstop)
+			return 0.0;
+
 		auto tps = std::chrono::high_resolution_clock::now();
 		tduration elapsed = tps - m_tpre;
 		m_dur = elapsed.count() + m_tstop;
