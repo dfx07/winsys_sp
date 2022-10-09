@@ -13,25 +13,37 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="Header Files\common">
+    <Filter Include="Header Files\graphics">
+      <UniqueIdentifier>{c390057b-e067-4859-8fd0-9eb70ba6f688}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\sys">
       <UniqueIdentifier>{a732d5b4-179f-41a2-a7bf-e685138c0d92}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\systruct.h">
-      <Filter>Header Files\common</Filter>
+      <Filter>Header Files\sys</Filter>
     </ClInclude>
     <ClInclude Include="include\sysutils.h">
-      <Filter>Header Files\common</Filter>
+      <Filter>Header Files\sys</Filter>
     </ClInclude>
     <ClInclude Include="include\dbstruct.h">
-      <Filter>Header Files\common</Filter>
+      <Filter>Header Files\sys</Filter>
     </ClInclude>
     <ClInclude Include="include\sysreport.h">
-      <Filter>Header Files\common</Filter>
+      <Filter>Header Files\sys</Filter>
     </ClInclude>
     <ClInclude Include="include\xsysdef.h">
-      <Filter>Header Files\common</Filter>
+      <Filter>Header Files\sys</Filter>
+    </ClInclude>
+    <ClInclude Include="include\glrender.h">
+      <Filter>Header Files\graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wglhandle.h">
+      <Filter>Header Files\graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wctrl.h">
+      <Filter>Header Files\graphics</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

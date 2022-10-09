@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <iostream>
 #include <memory>
 #include <Windows.h>
@@ -438,5 +438,33 @@ auto get_folder_path(const T& fpath, const int& bCheckExist = false)
 
     return T(path);
 }
+
+/***************************************************************************
+*! @brief  : get information monitori
+*! @author : thuong.nv - [Date] : 08/10/2022
+*! @param    [In] void
+*! @return : struct MonitoInfo
+*! @note   : N/A
+***************************************************************************/
+MonitorInfo get_monitorinfo()
+{
+	MonitorInfo infor;
+	DEVMODE devmode;
+
+	devmode.dmSize = sizeof(DEVMODE);
+	BOOL bResult = EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devmode);
+
+	if (bResult)
+	{
+		infor.WIDTH = devmode.dmPelsWidth;
+		infor.HEIGHT = devmode.dmPelsHeight;
+		infor.DISFREQ = devmode.dmDisplayFrequency;
+		infor.VERSION = devmode.dmDriverVersion;
+		infor.NAME = std::string((const char*)&(devmode.dmDeviceName[0]), CCHDEVICENAME);
+	}
+	return infor;
+}
+
+
 
 ___NAMESPACE_END___

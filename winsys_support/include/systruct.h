@@ -293,7 +293,7 @@ public:
 	}
 };
 
-class CFPSCouter
+class CFPSCounter
 {
 	typedef std::chrono::steady_clock::time_point	  time_pointer;
 	typedef std::chrono::duration<double>			  tduration;
@@ -314,7 +314,7 @@ private:
 		m_reset  = 0.0;
 	}
 public:
-	CFPSCouter() : m_fps(0), m_elapsed(0.0),
+	CFPSCounter() : m_fps(0), m_elapsed(0.0),
 		m_reset(0.0), m_frames(0)
 	{
 
@@ -348,7 +348,7 @@ public:
 	{
 		return this->m_fps;
 	}
-	double elapsed() //miliseconds
+	double frametime() //miliseconds
 	{
 		return this->m_elapsed;
 	}

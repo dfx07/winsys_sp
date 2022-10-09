@@ -3,6 +3,7 @@
 #include "include/dbstruct.h"
 #include <thread>
 #include "include/sysreport.h"
+#include "include/wglhandle.h"
 
 ___USELIBFOX____;
 
@@ -49,27 +50,34 @@ void process_output()
         //std::cout << timer.mili_elapsed() << std::endl;
     }
 }
-class A
+
+void Draw(Window* win)
 {
-public:
-    int a;
-};
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glColor3f(1.0, 0.0, 0.0);
+	glBegin(GL_LINES);
+	{
+		glVertex2f(0.5, 0.5);
+		glVertex2f(-0.5, 0.5);
+	}
+	glEnd();
+}
 
 int main()
 {
-	fox::CFPSCouter counter;
-	counter.start();
-	while (true)
+	Window* win = fox_create_window(L"thường", 0, 0);
+	win->SetOnDrawfunc(Draw);
+	win->WriteSystemInfo(true);
+
+	if (win)
 	{
-		counter.update();
-		std::cout << counter.elapsed() << std::endl;
-		for (int i = 0; i < 1000000; i++)
+		while (!win->closed())
 		{
-			//for (int j = 0; j < 1000; j++)
-			//{
-			//	int c = 10;
-			//}
+			win->draw();
+			win->poll_event();
 		}
 	}
-    getchar();
+	fox_destroy_window(win);
+
 }
