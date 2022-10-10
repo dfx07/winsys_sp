@@ -54,31 +54,45 @@ void process_output()
 float x = 0.5;
 float a = -1.0;
 
-void MouseButton(Window* win)
+MenuContext* menu = NULL;
+
+void MouseButton(Window* win, int btn, int action)
 {
-	if (win->GetMouseButtonStatus(GLMouse::LeftButton))
+	if (action == GL_PRESSED)
 	{
-		if (a == -1.0)
+		if (btn == GLMouse::RightButton)
 		{
-			a = 1.0;
+			menu->Show(win->GetCursorPos());
 		}
-		else
+	}
+	//std::cout << a << std::endl;
+	if (action == GL_PRESSED)
+	{
+		if (btn == GLMouse::LeftButton)
 		{
-			a = -1.0;
+			if (a == -1.0)
+			{
+				a = 1.0;
+			}
+			else
+			{
+				a = -1.0;
+			}
 		}
 	}
 }
 
 void Process(Window* win)
 {
-	//for (int i = 0; i < 12; i++)
-	//{
-	//	for (int j = 0; j < 100; j++)
-	//	{
-	//		x += 0.001;
-	//		std::this_thread::sleep_for(10ms);
-	//	}
-	//}
+	for (int i = 0; i < 100000000; i++)
+	{
+		for (int j = 0; j < 100000000; j++)
+		{
+			//x += 0.001;
+			int a = 10;
+			//std::this_thread::sleep_for(10ms);
+		}
+	}
 }
 
 
@@ -93,17 +107,41 @@ void Draw(Window* win)
 		glVertex2f( x, a);
 	}
 	glEnd();
-	//a += 0.5* win->GetFrameTime();
+	a += 0.5* win->GetFrameTime();
 }
 
 int main()
 {
-	Window* win = fox_create_window(L"thường", 0, 0);
+	WndProp adven;
+	adven.m_iAntialiasing = 8;
+	//adven.m_bFullScreen = true;
+
+	MenuItemBase item;
+	item.SetLabel(L"조선말");
+
+	menu = new MenuContext();
+	menu->AddItem(item);
+
+	Button* btn = new Button();
+	btn->SetLabel(L"조선말");
+	btn->SetPosition(10, 30);
+
+	Combobox* cbb = new Combobox();
+	cbb->AddItem(L"조선말", new int(5));
+	cbb->SetPosition(10, 70);
+
+	Window* win = fox_create_window(L"thường", 0, 0, 640, 480, &adven);
+
 	win->SetOnDrawfunc(Draw);
 	win->SetProcessfunc(Process);
 	win->SetOnMouseButtonfunc(MouseButton);
 
 	win->WriteSystemInfo(true);
+	win->AddControl(menu);
+	win->AddControl(btn);
+	win->AddControl(cbb);
+
+	win->SetFont(L"Segoe UI", 12);
 
 	if (win)
 	{
@@ -111,7 +149,7 @@ int main()
 		{
 			win->process();
 			win->draw();
-			win->poll_event();
+			win->wait_event();
 		}
 	}
 	fox_destroy_window(win);

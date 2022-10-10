@@ -15,6 +15,7 @@
 #include <map>
 #include <stack>
 #include <gdiplus.h>
+#include <mutex>
 
 
 #include <chrono>
@@ -152,12 +153,14 @@ private:
 	std::string		m_thread_name;
 
 	bool			m_bcreated;
+	bool			m_bdetach;
 public:
 	
 	explicit Safe_Thread() :
 		m_thread(),
 		m_thread_name("none"),
-		m_bcreated(false)
+		m_bcreated(false),
+		m_bdetach(false)
 	{
 
 	}
@@ -169,7 +172,7 @@ public:
 		m_bcreated = true;
 	}
 
-	Safe_Thread(Safe_Thread &&other)
+	Safe_Thread(Safe_Thread &&other) noexcept
 	{
 		m_thread = std::move(other.m_thread);
 	}
@@ -195,10 +198,18 @@ public:
 			m_thread.join();
 	}
 
+	bool is_detach()
+	{
+		return m_bdetach;
+	}
+
 	void detach()
 	{
 		if (m_thread.joinable())
+		{
 			m_thread.detach();
+			m_bdetach = true;
+		}
 	}
 };
 
@@ -230,7 +241,7 @@ struct WndProp
 	DWORD               m_dwStyle;       // Window Style
 
 
-	void default()
+	void set_default()
 	{
 		m_bFullScreen   = false;
 		m_bGDIplus	    = false;
@@ -241,7 +252,7 @@ struct WndProp
 
 	WndProp()
 	{
-		this->default();
+		this->set_default();
 	}
 
 	WndProp(const char* title, int xpos, int ypos, int width = 640, int height = 480)
@@ -298,6 +309,8 @@ private:
 	short                  m_zDeltaScroll;
 
 private:
+	bool				   m_bUseOpenGLEx;
+private:
 	// Window property
 	std::wstring           m_title;
 	int                    m_x;
@@ -317,12 +330,22 @@ private:
 	unsigned int           m_fontSizeTextRender;
 	bool                   m_bSysInfo;
 
+	// System draw infor
+	bool				   m_bUpdateRenderInfo; // update view , text render info :
+	int					   m_iIdUpdate;
+	std::mutex						m_renderinfo_mutex;
+	std::condition_variable			m_sycn_renderinfo;
+
+	std::wstring		   m_gpu_device_name;
+
+	// Control section
+	unsigned int		   m_idsctrl;
 
 	Safe_Thread			   m_drawthread;
 	Safe_Thread			   m_processthread;
 
 	// Font information
-	const char*            m_fontName;
+	std::wstring           m_fontName;
 	unsigned int           m_fontSize;
 	FontWeight             m_fontWeight;
 private:
@@ -330,7 +353,7 @@ private:
 	void(*m_funOnCreated)      (Window* win) = NULL;
 	void(*m_funOnDestroy)      (Window* win) = NULL;
 	void(*m_funOnPaint)        (Window* win) = NULL;
-	void(*m_funOnMouse)        (Window* win) = NULL;
+	void(*m_funOnMouse)        (Window* win, int button, int action) = NULL;
 	void(*m_funOnMouseRealt)   (Window* win) = NULL;
 	void(*m_funOnMouseMove)    (Window* win) = NULL;
 	void(*m_funOnKeyboard)     (Window* win) = NULL;
@@ -346,7 +369,7 @@ public:
 	void SetOnCreatedfunc		  (void(*funOnCreate)(Window*))		{ m_funOnCreated = funOnCreate;		}
 	void SetOnDestroyfunc		  (void(*funOnDestroy)(Window*))	{ m_funOnDestroy = funOnDestroy;	}
 	void SetOnPaintfunc			  (void(*funOnPaint)(Window*))		{ m_funOnPaint = funOnPaint;		}
-	void SetOnMouseButtonfunc	  (void(*funOnMouse)(Window*))		{ m_funOnMouse = funOnMouse;		}
+	void SetOnMouseButtonfunc	  (void(*funOnMouse)(Window*, int, int))		{ m_funOnMouse = funOnMouse;		}
 	void SetOnMouseButtonRealtfunc(void(*funOnMouse)(Window*))		{ m_funOnMouseRealt = funOnMouse;	}
 	void SetOnMouseMovefunc		  (void(*funOnMouseMove)(Window*))	{ m_funOnMouseMove = funOnMouseMove;}
 	void SetOnKeyboardfunc		  (void(*funOnKeyboard)(Window*))	{ m_funOnKeyboard = funOnKeyboard;	}
@@ -372,10 +395,10 @@ public:
 		if (m_funOnKeyboard)
 			this->m_funOnKeyboard(this);
 	}
-	virtual void OnMouseButton()
+	virtual void OnMouseButton(int button, int action)
 	{
 		if (m_funOnMouse)
-			this->m_funOnMouse(this);
+			this->m_funOnMouse(this, button, action);
 	}
 	virtual void OnMouseMove()
 	{
@@ -453,25 +476,25 @@ public:
 		case WM_LBUTTONUP:
 		{
 			win->SetMouseButtonStatus(VK_LBUTTON, false);
-			win->OnMouseButton();
+			win->OnMouseButton(GLMouse::LeftButton, GL_RELEASE);
 			break;
 		}
 		case WM_RBUTTONUP:
 		{
 			win->SetMouseButtonStatus(VK_RBUTTON, false);
-			win->OnMouseButton();
+			win->OnMouseButton(GLMouse::RightButton, GL_RELEASE);
 			break;
 		}
 		case WM_LBUTTONDOWN:
 		{
 			win->SetMouseButtonStatus(VK_LBUTTON, true);
-			win->OnMouseButton();
+			win->OnMouseButton(GLMouse::LeftButton, GL_PRESSED);
 			break;
 		}
 		case WM_RBUTTONDOWN:
 		{
 			win->SetMouseButtonStatus(VK_RBUTTON, true);
-			win->OnMouseButton();
+			win->OnMouseButton(GLMouse::RightButton, GL_PRESSED);
 			break;
 		}
 		case WM_MOUSEMOVE:
@@ -483,19 +506,17 @@ public:
 		{
 			win->m_width  = LOWORD(lParam); // width
 			win->m_height = HIWORD(lParam); // height
+			win->UpdateRenderInfo();
 
-			glViewport(0, 0, win->m_width, win->m_height);
-			win->OnResize();
 			win->UpdateTitle();
-			win->UpdateTextRender();
-			win->OnDraw();
-			win->SwapBuffer();
+			// cannot use opengl context in this tunnel
+			win->OnResize();
 
 			return 0;
 		}
 		case WM_SIZING:
 		{
-			glViewport(0, 0, win->m_width, win->m_height);
+			//glViewport(0, 0, win->m_width, win->m_height);
 			win->UpdateTitle();
 			return TRUE;
 		}
@@ -543,6 +564,22 @@ private:
 	{
 		if (!this->MakeContext()) return;
 
+		if (m_bUpdateRenderInfo)
+		{
+			glViewport(0, 0, m_width, m_height);
+			UpdateTextRender();
+			
+			std::string gpu_device = "No Device";
+			if ((char*)glGetString(GL_RENDERER))
+			{
+				gpu_device = (char*)glGetString(GL_RENDERER);
+			}
+			m_gpu_device_name = fox::from_utf8(gpu_device);
+			
+			m_bUpdateRenderInfo = false;
+			m_sycn_renderinfo.notify_all();
+		}
+
 		this->UpdateWndInfo();
 
 		// Thực hiện vẽ custom người dùng
@@ -583,7 +620,7 @@ private:
 		HFONT hFont = (HFONT)SendMessage(hwnd, WM_GETFONT, NULL, NULL);
 		if (!hFont)
 		{
-			SendMessage(hwnd, WM_SETFONT, font, true);
+			SendMessage(hwnd, WM_SETFONT, font, TRUE);
 		}
 		return TRUE;
 	}
@@ -592,7 +629,7 @@ private:
 	//==================================================================================
 	void UpdateFont()
 	{
-		if (!m_hWnd || !m_fontName) return;
+		if (!m_hWnd || m_fontName.empty()) return;
 
 		int iFontWeight = FW_NORMAL;
 		switch (m_fontWeight)
@@ -604,8 +641,8 @@ private:
 			break;
 		}
 		HFONT hFont = NULL;
-		hFont = CreateFontA(m_fontSize, 0, 0, 0, iFontWeight, 0,
-				0, 0, 0, 0, 0, 0, 0, m_fontName);
+		hFont = CreateFont(m_fontSize, 0, 0, 0, iFontWeight, 0,
+				0, 0, 0, 0, 0, 0, 0, m_fontName.c_str());
 
 		SendMessage(m_hWnd, WM_SETFONT, (WPARAM)hFont, FALSE);
 
@@ -613,12 +650,13 @@ private:
 	}
 
 public:
-	void SetFont(const char* fontName, const unsigned int fontSize, const FontWeight fontWeight = FontWeight::Normal)
+	void SetFont(const wchar_t* fontName, const unsigned int fontSize, const FontWeight fontWeight = FontWeight::Normal)
 	{
 		m_fontName = fontName;
 		m_fontSize = fontSize;
 		m_fontWeight = fontWeight;
 
+		UpdateFont();
 	}
 
 	//======================================================================================
@@ -631,12 +669,11 @@ private:
 	virtual void OnInitControl()
 	{
 		// IDS bắt đầu của control nó sẽ tăng khi vào hàm onInitControl của các control
-		UINT IDS = 1000;
-		for (int i = 0; i < m_controls.size(); i++)
-		{
-			m_controls[i]->SetParent(m_hWnd);
-			m_controls[i]->OnInitControl(IDS);
-		}
+		//for (int i = 0; i < m_controls.size(); i++)
+		//{
+		//	m_controls[i]->SetParent(m_hWnd);
+		//	m_controls[i]->OnInitControl(IDS);
+		//}
 	}
 
 	//==================================================================================
@@ -719,7 +756,7 @@ private:
 	// Khởi tạo ngữ cảnh OpenGL (OpenGL context)                                        
 	// bOpenGLex : sử dụng OpenGL mở rộng                                               
 	//==================================================================================
-	bool CreateOpenGLContext(bool bOpenGLEx = true)
+	bool CreateOpenGLContext(/*bool bOpenGLEx = true*/)
 	{
 		HDC   hDC   = GetDC(m_hWnd);
 		HGLRC hglrc = NULL;
@@ -727,7 +764,7 @@ private:
 		int iPixelFormat; unsigned int num_formats = 0;
 
 		// Get pixel format attributes through "modern" extension
-		if (bOpenGLEx)
+		if (m_bUseOpenGLEx)
 		{
 			int pixelAttribs[47];
 			GetFixelFormatAttribute(pixelAttribs, sizeof(pixelAttribs) / sizeof(pixelAttribs[0]));
@@ -971,10 +1008,15 @@ private:
 		return true;
 	}
 
+	void SetUseOpenGLExtension(const bool& buse)
+	{
+		this->m_bUseOpenGLEx = buse;
+	}
+
 	//==================================================================================
 	// Khởi tạo window và thiết lập thông số                                            
 	//==================================================================================
-	bool _OnCreate(const wchar_t* strClassname, bool bInitOpenGLEx = false)
+	bool _OnCreate(const wchar_t* strClassname)
 	{
 		bool ret = true;
 		// Update get style window
@@ -988,9 +1030,7 @@ private:
 			// Update get style window
 			this->UpdateHint();
 
-			// Create OpenGL context
-			//this->CreateOpenGLContext(bInitOpenGLEx);
-
+			// Active function user custom
 			this->OnCreated();
 
 			// Update title after created ok
@@ -1000,13 +1040,39 @@ private:
 			this->OnInitControl();
 
 			// Update font control after initialization control
-			this->UpdateFont();
+			//this->UpdateFont();
 
 			// Update and setup properties when everything is done
 			this->InitProperties();
 		}
 
 		return ret;
+	}
+
+	//==================================================================================
+	// Khởi tạo window và thiết lập thông số                                            
+	//==================================================================================
+	bool _OnCreateOpenGLContext(bool bInitOpenGLEx = false)
+	{
+		// Set up use OpenGL extension
+		this->SetUseOpenGLExtension(bInitOpenGLEx);
+
+		// Any given OpenGL rendering context can be active at only one thread at a time.
+		// if I create opengl context in main thread then this thread not active
+		//this->CreateOpenGLContext();
+
+		if (!m_drawthread.is_created())
+		{
+			m_drawthread.create(&Window::ThreadDrawOpenGL, this);
+			m_drawthread.detach();
+		}
+
+		if (!m_processthread.is_created())
+		{
+			m_processthread.create(&Window::ThreadProcessOpenGL, this);
+		}
+
+		return true;
 	}
 
 	//=======================================================================================
@@ -1057,10 +1123,22 @@ private:
 	void InitProperties()
 	{
 		m_fpscounter.start();
+	}
 
-		// Setup Text render;
-		this->ReloadTextRender();
+	//===================================================================================
+	// send notify to draw thread and update render info
+	//===================================================================================
+	void UpdateRenderInfo()
+	{
+		// update information draw in thread draw and notify ok to main thread
+		m_bUpdateRenderInfo = true;
+		std::unique_lock< std::mutex> lock(m_renderinfo_mutex);
 
+		// wait for : draw thread update draw info ok
+		while (m_bUpdateRenderInfo)
+		{
+			m_sycn_renderinfo.wait(lock);
+		}
 	}
 
 	//===================================================================================
@@ -1070,17 +1148,12 @@ private:
 	{
 		if (!m_hWnd) return;
 
-		std::string gpu_device = "No Device";
-		if ((char*)glGetString(GL_RENDERER))
-		{
-			gpu_device = (char*)glGetString(GL_RENDERER);
-		}
-		std::wstring gpu_device_name = fox::from_utf8(gpu_device);
-
 		wchar_t titlebuff[256];
+
+		// m_gpu_deive_name updated in render thread
 		swprintf_s(titlebuff, L"%s - %d x %d - %s",  m_title.c_str(),
 			m_width, m_height,
-			gpu_device_name.c_str());
+			m_gpu_device_name.c_str());
 		SetWindowText(m_hWnd, titlebuff);
 	}
 
@@ -1209,9 +1282,17 @@ public:
 		this->m_height = height;
 
 		// setup default font
-		this->m_fontName = "Arial";
+		this->m_fontName = L"Arial";
 		this->m_fontSize = 12;
 		this->m_fontWeight = FontWeight::Normal;
+
+		// openGL information
+		this->m_bUseOpenGLEx = false; // it reup when create window and load opengl extension
+		this->m_bUpdateRenderInfo = false;
+		this->m_iIdUpdate = 0;
+
+		// control setup
+		this->m_idsctrl = 1000;
 
 		// setup default text render
 		this->m_fontNameTextRender = "Consolas";
@@ -1295,7 +1376,11 @@ public:
 
 	void AddControl(Control* control)
 	{
+		if (!control)
+			return;
 		m_controls.push_back(control);
+		control->SetParent(m_hWnd);
+		control->OnInitControl(m_idsctrl);
 	}
 
 	int       GetWidth() { return m_width; }
@@ -1336,6 +1421,17 @@ public:
 			ypos = 0;
 			return false;
 		}
+	}
+
+	POINT GetCursorPos()
+	{
+		POINT cursor_pos{ 0,0 };
+
+		if (::GetCursorPos(&cursor_pos) && ::ScreenToClient(m_hWnd, &cursor_pos))
+		{
+			return cursor_pos;
+		}
+		return cursor_pos;
 	}
 
 	//==================================================================================
@@ -1419,8 +1515,12 @@ private:
 
 	virtual void ThreadDrawOpenGL()
 	{
-		this->CreateOpenGLContext(true);
+		// if I create opengl context in main thread then this thread not active
+		this->CreateOpenGLContext();
 
+		// Setup Text render;
+		this->ReloadTextRender();
+		
 		while (!this->closed())
 		{
 			this->OnDraw();
@@ -1440,18 +1540,16 @@ public:
 	// function draw opengl : makecontext + swapbuffer
 	void draw()
 	{
-		if (!m_drawthread.is_created())
+		if (!m_drawthread.is_detach())
 		{
-			m_drawthread.create(&Window::ThreadDrawOpenGL, this);
 			m_drawthread.detach();
 		}
 	}
 
 	void process()
 	{
-		if (!m_processthread.is_created())
+		if (!m_processthread.is_detach())
 		{
-			m_processthread.create(&Window::ThreadProcessOpenGL, this);
 			m_processthread.detach();
 		}
 	}
@@ -1504,10 +1602,19 @@ Window* fox_create_window(const wchar_t* title, int xpos, int ypos, int width = 
 
 	if (!bRegWinClass)
 		return NULL;
-
+	
+	// create window handle
 	Window* win = new Window(title, xpos, ypos, width, height, prop);
-	if(!win->_OnCreate(GL_WIN_CLASS, bInitOpenGLex ? true : false))
+	if(!win->_OnCreate(GL_WIN_CLASS))
 	{
+		delete win;
+		return NULL;
+	}
+	
+	// create opengl context 
+	if (!win->_OnCreateOpenGLContext(bInitOpenGLex))
+	{
+		win->close();
 		delete win;
 		return NULL;
 	}

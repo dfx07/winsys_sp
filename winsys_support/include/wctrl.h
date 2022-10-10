@@ -54,7 +54,24 @@ public:
 	virtual void     Draw() {};
 	virtual void     Event(Window* window, WORD _id, WORD _event) {};
 	virtual bool     ContainID(INT ID) { return false; };
+	virtual void	 UpdateFontFromParant()
+	{
+		if (!m_hwndPar)
+			return;
 
+		//HDC hdc = GetDC(m_hwndPar);
+
+		//HFONT hlf = (HFONT)GetCurrentObject(hdc, OBJ_FONT);
+
+		//SendMessage(m_hwnd, WM_SETFONT, (WPARAM)hlf, TRUE);
+		//ReleaseDC(m_hwndPar, hdc);
+		//HDC hdc = GetDC(m_hwndPar);
+		//HFONT font = (HFONT)SendMessage(m_hwndPar, WM_GETFONT, (WPARAM)font, FALSE);
+		//HFONT hFont = (HFONT)SendMessage(m_hwndPar, WM_GETFONT, NULL, NULL);
+
+		//SendMessage(m_hwnd, WM_SETFONT, (WPARAM)hFont, TRUE);
+		//ReleaseDC(m_hwndPar, hdc);
+	}
 public:
 	HWND GetHwnd() { return m_hwnd; }
 	INT  GetID() { return m_ID; }
@@ -80,9 +97,9 @@ public:
 class MenuItemBase
 {
 public:
-	UINT        m_ID;
-	UINT        m_type;
-	string      m_label;
+	UINT			  m_ID;
+	UINT			  m_type;
+	std::wstring      m_label;
 
 public:
 	void(*m_EventFun)(Window* window, Control* ctrl) = NULL;
@@ -91,17 +108,17 @@ public:
 	MenuItemBase()
 	{
 		m_ID = 0;
-		m_label = "";
+		m_label = L"";
 	};
 
 	void   SetEvent(void(*mn)(Window*, Control*)) { m_EventFun = mn; }
-	void   SetLabel(string lab) { m_label = lab; }
+	void   SetLabel(wstring lab) { m_label = lab; }
 	void   SetType(UINT type) { m_type = type; }
 	void   SetID(UINT id) { m_ID = id; }
 
-	string GetLabel() { return m_label; }
-	UINT   GetType() { return m_type; }
-	UINT   GetID() { return m_ID; }
+	wstring GetLabel() { return m_label; }
+	UINT   GetType()   { return m_type; }
+	UINT   GetID()     { return m_ID; }
 };
 
 class MenuContext : public Control
@@ -111,7 +128,8 @@ protected:
 	vector<MenuItemBase>     m_items;
 
 public:
-	MenuContext() : Control(CtrlType::MENUCONTEXT)
+	MenuContext() : Control(CtrlType::MENUCONTEXT),
+		m_hMenu()
 	{
 
 	}
@@ -127,11 +145,11 @@ private:
 
 			if (m_items[i].GetType() == MF_SEPARATOR)
 			{
-				AppendMenuA(m_hMenu, MF_SEPARATOR, m_items[i].GetID(), NULL);
+				AppendMenu(m_hMenu, MF_SEPARATOR, m_items[i].GetID(), NULL);
 			}
 			else
 			{
-				AppendMenuA(m_hMenu, m_items[i].GetType(), m_items[i].GetID(), m_items[i].GetLabel().c_str());
+				AppendMenu(m_hMenu, m_items[i].GetType(), m_items[i].GetID(), m_items[i].GetLabel().c_str());
 			}
 		}
 
@@ -171,7 +189,7 @@ public:
 	}
 
 public:
-	void AddItem(MenuItemBase item)
+	void AddItem(const MenuItemBase& item)
 	{
 		m_items.push_back(item);
 	}
@@ -202,7 +220,8 @@ protected:
 	vector<MenuItemBase>   m_items;
 
 public:
-	MenuBarItem(string lab = "") : m_text(lab)
+	MenuBarItem(string lab = "") : m_text(lab),
+		m_hMenu()
 	{
 
 	}
@@ -218,11 +237,11 @@ private:
 
 			if (m_items[i].GetType() == MF_SEPARATOR)
 			{
-				AppendMenuA(m_hMenu, MF_SEPARATOR, m_items[i].GetID(), NULL);
+				AppendMenu(m_hMenu, MF_SEPARATOR, m_items[i].GetID(), NULL);
 			}
 			else
 			{
-				AppendMenuA(m_hMenu, m_items[i].GetType(), m_items[i].GetID(), m_items[i].GetLabel().c_str());
+				AppendMenu(m_hMenu, m_items[i].GetType(), m_items[i].GetID(), m_items[i].GetLabel().c_str());
 			}
 		}
 
@@ -356,7 +375,7 @@ protected:
 	UINT        m_width;
 	UINT        m_height;
 
-	string      m_label;
+	wstring      m_label;
 	bool        m_bClicked;
 
 	void(*m_EventFun)(Window* window, Button* btn) = NULL;
@@ -377,14 +396,14 @@ public:
 		m_width = width;
 		m_height = height;
 	}
-	void SetLabel(string lab) { m_label = lab; }
+	void SetLabel(wstring lab) { m_label = lab; }
 
 public:
 	void OnInitControl(UINT& IDS)
 	{
 		UINT BackupIDS = IDS;
 		m_ID = IDS++;
-		m_hwnd = (HWND)CreateWindowA("BUTTON", m_label.c_str(),                              // Button text 
+		m_hwnd = (HWND)CreateWindow(L"BUTTON", m_label.c_str(),     // Button text 
 			WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,  // Styles 
 			m_x,                                                    // x position 
 			m_y,                                                    // y position 
@@ -399,6 +418,7 @@ public:
 			m_ID = 0;
 			IDS = BackupIDS;
 		}
+		this->UpdateFontFromParant();
 	}
 
 	virtual void Event(Window* window, WORD _id, WORD _event)
@@ -429,7 +449,7 @@ public:
 
 struct CBB_ITEM
 {
-	string      text; // dữ liệu text hiển thị trên cbb
+	wstring     text; // dữ liệu text hiển thị trên cbb
 	void*       data; // dữ liêu của item tự định nghĩa và kiểm soát
 };
 
@@ -459,6 +479,7 @@ public:
 		m_width = _width;
 		m_height = _height;
 		m_editText = false;
+		selected = -1;
 	}
 
 	~Combobox()
@@ -545,7 +566,7 @@ public:
 	}
 
 	// Chú ý cần clone và tạo data bằng new 
-	void AddItem(string text, void* data = NULL)
+	void AddItem(wstring text, void* data = NULL)
 	{
 		CBB_ITEM    item;
 		item.text = text;
@@ -557,7 +578,7 @@ public:
 	//===================================================================================
 	// Xóa một item được chỉ định bằng text : tất cả các item có text sẽ bị xóa          
 	//===================================================================================
-	void RemoveItem(string text)
+	void RemoveItem(wstring text)
 	{
 		for (auto it = items.begin(); it != items.end(); /*it++*/)
 		{
@@ -617,11 +638,11 @@ public:
 	//===================================================================================
 	// Lấy text của item dựa vào index                                                   
 	//===================================================================================
-	string GetItemText(int index)
+	wstring GetItemText(int index)
 	{
 		if (index < 0 || index >= items.size())
 		{
-			return "";
+			return L"";
 		}
 
 		return items[index].text;
@@ -643,12 +664,12 @@ public:
 	//===================================================================================
 	// Lấy giá trị text của item selected                                                
 	//===================================================================================
-	string GetSelectText()
+	wstring GetSelectText()
 	{
 		GetSelectIndexItem();
 		if (selected < 0 || selected >= items.size())
 		{
-			return "";
+			return L"";
 		}
 
 		return items[selected].text;
@@ -690,10 +711,10 @@ public:
 		if (m_editText) style |= CBS_DROPDOWN;
 		else            style |= CBS_DROPDOWNLIST;
 
-		m_hwnd = CreateWindowA("Combobox", NULL, style,               //
-			m_x, m_y,                           // x, y
-			m_width, m_height*(int)items.size(),  // chiều rộng / chiều cao
-			m_hwndPar,                            // Handle cha
+		m_hwnd = CreateWindow(L"Combobox", NULL, style,      //
+			m_x, m_y,										// x, y
+			m_width, m_height*(int)items.size(),			// chiều rộng / chiều cao
+			m_hwndPar,										// Handle cha
 			(HMENU)(UINT_PTR)m_ID, NULL, NULL);
 
 		// Create combobox failed !
@@ -705,7 +726,6 @@ public:
 
 		UpdateItems();
 	}
-
 
 	virtual void Event(Window* window, WORD _id, WORD _event)
 	{
