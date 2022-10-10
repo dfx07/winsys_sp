@@ -114,10 +114,10 @@ int main()
 {
 	WndProp adven;
 	adven.m_iAntialiasing = 8;
-	//adven.m_bFullScreen = true;
+	adven.m_bFullScreen = true;
 
 	MenuItemBase item;
-	item.SetLabel(L"조선말");
+	item.SetLabel(L"Open file");
 
 	menu = new MenuContext();
 	menu->AddItem(item);
@@ -141,7 +141,7 @@ int main()
 	win->AddControl(btn);
 	win->AddControl(cbb);
 
-	win->SetFont(L"Segoe UI", 12);
+	win->SetFont(L"Segoe UI", 14);
 
 	if (win)
 	{

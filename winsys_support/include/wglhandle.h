@@ -1135,7 +1135,7 @@ private:
 		std::unique_lock< std::mutex> lock(m_renderinfo_mutex);
 
 		// wait for : draw thread update draw info ok
-		while (m_bUpdateRenderInfo)
+		while (m_bUpdateRenderInfo && m_drawthread.is_detach())
 		{
 			m_sycn_renderinfo.wait(lock);
 		}
