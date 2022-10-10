@@ -942,7 +942,7 @@ private:
 			Gdiplus::GdiplusStartupInput gdiplusStartupInput;
 			ULONG_PTR           gdiplusToken;
 
-			Gdiplus::Status status = GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
+			Gdiplus::Status status = Gdiplus::GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
 			if (status == Gdiplus::Status::Ok)
 			{
 				m_gdiToken.m_id = gdiplusToken;
@@ -1586,6 +1586,7 @@ public:
 	}
 
 	friend Window* fox_create_window(const wchar_t* , int , int , int , int, const WndProp*);
+	friend Window* fox_create_window(Window*);
 };
 
 
@@ -1611,6 +1612,39 @@ Window* fox_create_window(const wchar_t* title, int xpos, int ypos, int width = 
 		return NULL;
 	}
 	
+	// create opengl context 
+	if (!win->_OnCreateOpenGLContext(bInitOpenGLex))
+	{
+		win->close();
+		delete win;
+		return NULL;
+	}
+
+	win->Show();
+
+	return win;
+}
+
+Window* fox_create_window(Window* win)
+{
+	static int bRegWinClass = FALSE;
+	static int bInitOpenGLex = FALSE;
+
+	if (!bRegWinClass)
+		bRegWinClass = Window::register_window_class(GL_WIN_CLASS, Window::WndMainProc, GetModuleHandle(NULL));
+
+	if (bRegWinClass && !bInitOpenGLex)
+		bInitOpenGLex = Window::load_opengl_extension();
+
+	if (!bRegWinClass)
+		return NULL;
+
+	if (!win->_OnCreate(GL_WIN_CLASS))
+	{
+		delete win;
+		return NULL;
+	}
+
 	// create opengl context 
 	if (!win->_OnCreateOpenGLContext(bInitOpenGLex))
 	{

@@ -114,7 +114,7 @@ int main()
 {
 	WndProp adven;
 	adven.m_iAntialiasing = 8;
-	adven.m_bFullScreen = true;
+	//adven.m_bFullScreen = true;
 
 	MenuItemBase item;
 	item.SetLabel(L"Open file");
