@@ -84,15 +84,15 @@ void MouseButton(Window* win, int btn, int action)
 
 void Process(Window* win)
 {
-	for (int i = 0; i < 100000000; i++)
-	{
-		for (int j = 0; j < 100000000; j++)
-		{
-			//x += 0.001;
-			int a = 10;
-			//std::this_thread::sleep_for(10ms);
-		}
-	}
+	//for (int i = 0; i < 100000000; i++)
+	//{
+	//	for (int j = 0; j < 100000000; j++)
+	//	{
+	//		//x += 0.001;
+	//		int a = 10;
+	//		//std::this_thread::sleep_for(10ms);
+	//	}
+	//}
 }
 
 
@@ -115,6 +115,7 @@ int main()
 	WndProp adven;
 	adven.m_iAntialiasing = 8;
 	//adven.m_bFullScreen = true;
+	adven.m_iModeDraw = 0;
 
 	MenuItemBase item;
 	item.SetLabel(L"Open file");
@@ -149,7 +150,7 @@ int main()
 		{
 			win->process();
 			win->draw();
-			win->wait_event();
+			win->poll_event();
 		}
 	}
 	fox_destroy_window(win);

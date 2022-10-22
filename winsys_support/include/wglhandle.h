@@ -234,6 +234,7 @@ struct WndProp
 	bool                m_bGDIplus;
 	bool                m_bOpenGL;       // State OpenGL
 	int                 m_iAntialiasing; // Antialiasing level = 8
+	int					m_iModeDraw;	 // 1 : use thread draw opengl | 0 :use pipe main thread
 	bool				m_writeinfo;
 
 
@@ -247,6 +248,7 @@ struct WndProp
 		m_bGDIplus	    = false;
 		m_bOpenGL	    = false;
 		m_iAntialiasing = -1;
+		m_iModeDraw		= 0;
 		m_writeinfo		= false;
 	}
 
@@ -560,24 +562,39 @@ public:
 	}
 
 private:
+	// get gpu name use opengl 
+	virtual std::wstring GetGPUDevice()
+	{
+		std::string gpu_device = "No Device";
+		if ((char*)glGetString(GL_RENDERER))
+		{
+			gpu_device = (char*)glGetString(GL_RENDERER);
+		}
+		return fox::from_utf8(gpu_device);
+	}
+
+private:
 	virtual void OnDraw()
 	{
 		if (!this->MakeContext()) return;
 
-		if (m_bUpdateRenderInfo)
+		if (m_pProp.m_iModeDraw == 1)
+		{
+			if (m_bUpdateRenderInfo)
+			{
+				glViewport(0, 0, m_width, m_height);
+				UpdateTextRender();
+
+				m_gpu_device_name = this->GetGPUDevice();
+
+				m_bUpdateRenderInfo = false;
+				m_sycn_renderinfo.notify_all();
+			}
+		}
+		else
 		{
 			glViewport(0, 0, m_width, m_height);
 			UpdateTextRender();
-			
-			std::string gpu_device = "No Device";
-			if ((char*)glGetString(GL_RENDERER))
-			{
-				gpu_device = (char*)glGetString(GL_RENDERER);
-			}
-			m_gpu_device_name = fox::from_utf8(gpu_device);
-			
-			m_bUpdateRenderInfo = false;
-			m_sycn_renderinfo.notify_all();
 		}
 
 		this->UpdateWndInfo();
@@ -1061,15 +1078,26 @@ private:
 		// if I create opengl context in main thread then this thread not active
 		//this->CreateOpenGLContext();
 
-		if (!m_drawthread.is_created())
+		if (m_pProp.m_iModeDraw == 1)
 		{
-			m_drawthread.create(&Window::ThreadDrawOpenGL, this);
-			m_drawthread.detach();
-		}
+			if (!m_drawthread.is_created())
+			{
+				m_drawthread.create(&Window::ThreadDrawOpenGL, this);
+				m_drawthread.detach();
+			}
 
-		if (!m_processthread.is_created())
+			if (!m_processthread.is_created())
+			{
+				m_processthread.create(&Window::ThreadProcessOpenGL, this);
+			}
+		}
+		// create opengl main thread
+		else
 		{
-			m_processthread.create(&Window::ThreadProcessOpenGL, this);
+			auto ret = this->CreateOpenGLContext();
+			if(ret)
+				this->ReloadTextRender();
+			return ret;
 		}
 
 		return true;
@@ -1130,14 +1158,21 @@ private:
 	//===================================================================================
 	void UpdateRenderInfo()
 	{
-		// update information draw in thread draw and notify ok to main thread
-		m_bUpdateRenderInfo = true;
-		std::unique_lock< std::mutex> lock(m_renderinfo_mutex);
-
-		// wait for : draw thread update draw info ok
-		while (m_bUpdateRenderInfo && m_drawthread.is_detach())
+		if (m_pProp.m_iModeDraw == 1)
 		{
-			m_sycn_renderinfo.wait(lock);
+			// update information draw in thread draw and notify ok to main thread
+			m_bUpdateRenderInfo = true;
+			std::unique_lock< std::mutex> lock(m_renderinfo_mutex);
+
+			// wait for : draw thread update draw info ok
+			while (m_bUpdateRenderInfo && m_drawthread.is_detach())
+			{
+				m_sycn_renderinfo.wait(lock);
+			}
+		}
+		else
+		{
+			
 		}
 	}
 
@@ -1150,10 +1185,17 @@ private:
 
 		wchar_t titlebuff[256];
 
+		std::wstring gpu_name = L"Unknown";
+
+		if (m_pProp.m_iModeDraw == 1)
+			gpu_name = m_gpu_device_name.c_str();
+		else
+			gpu_name = this->GetGPUDevice();
+
 		// m_gpu_deive_name updated in render thread
 		swprintf_s(titlebuff, L"%s - %d x %d - %s",  m_title.c_str(),
 			m_width, m_height,
-			m_gpu_device_name.c_str());
+			gpu_name.c_str());
 		SetWindowText(m_hWnd, titlebuff);
 	}
 
@@ -1540,17 +1582,31 @@ public:
 	// function draw opengl : makecontext + swapbuffer
 	void draw()
 	{
-		if (!m_drawthread.is_detach())
+		if (m_pProp.m_iModeDraw == 1)
 		{
-			m_drawthread.detach();
+			if (!m_drawthread.is_detach())
+			{
+				m_drawthread.detach();
+			}
+		}
+		else
+		{
+			this->OnDraw();
 		}
 	}
 
 	void process()
 	{
-		if (!m_processthread.is_detach())
+		if (m_pProp.m_iModeDraw == 1)
 		{
-			m_processthread.detach();
+			if (!m_processthread.is_detach())
+			{
+				m_processthread.detach();
+			}
+		}
+		else
+		{
+			this->OnProcess();
 		}
 	}
 
