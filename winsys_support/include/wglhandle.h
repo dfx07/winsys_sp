@@ -685,12 +685,14 @@ private:
 	//==================================================================================
 	virtual void OnInitControl()
 	{
-		// IDS bắt đầu của control nó sẽ tăng khi vào hàm onInitControl của các control
-		//for (int i = 0; i < m_controls.size(); i++)
-		//{
-		//	m_controls[i]->SetParent(m_hWnd);
-		//	m_controls[i]->OnInitControl(IDS);
-		//}
+		for (int i = 0; i < m_controls.size(); i++)
+		{
+			if (!m_controls[i]->IsCreated())
+			{
+				m_controls[i]->SetParent(m_hWnd);
+				m_controls[i]->OnInitControl(m_idsctrl);
+			}
+		}
 	}
 
 	//==================================================================================
@@ -1057,7 +1059,7 @@ private:
 			this->OnInitControl();
 
 			// Update font control after initialization control
-			//this->UpdateFont();
+			this->UpdateFont();
 
 			// Update and setup properties when everything is done
 			this->InitProperties();
@@ -1315,7 +1317,7 @@ public:
 
 	Window(	const wchar_t* title, const int& xpos, const int& ypos,
 			const int& width = 640, const int height = 480,
-			const WndProp* prop = NULL)
+			const WndProp* prop = NULL) : m_hWnd(NULL)
 	{
 		this->m_title  = title;
 		this->m_x	   = xpos;
@@ -1416,13 +1418,31 @@ public:
 		return false;
 	}
 
-	void AddControl(Control* control)
+	// @return : 0 : false, 1 ok
+	int AddControl(Control* control)
 	{
 		if (!control)
-			return;
-		m_controls.push_back(control);
-		control->SetParent(m_hWnd);
-		control->OnInitControl(m_idsctrl);
+			return 0;
+
+		if (m_hWnd == NULL)
+		{
+			// it will initialize later
+			m_controls.push_back(control);
+		}
+		else
+		{
+			// if existed window handle then initiation control
+			control->SetParent(m_hWnd);
+			if (control->OnInitControl(m_idsctrl))
+			{
+				m_controls.push_back(control);
+			}
+			else
+			{
+				return 0;
+			}
+		}
+		return 1;
 	}
 
 	int       GetWidth() { return m_width; }

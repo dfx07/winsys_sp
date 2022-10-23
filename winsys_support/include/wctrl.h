@@ -39,16 +39,16 @@ protected:
 	bool         m_bVisble;
 
 public:
-	Control(CtrlType type)
+	Control(CtrlType type) :
+		m_hwnd(NULL), m_ID(0)
 	{
-		m_ID = 0;
 		m_type = type;
-		m_hwnd = NULL;
 	}
 
 public:
-	virtual void     OnInitControl(UINT& IDS) = 0;
+	virtual int      OnInitControl(UINT& IDS) = 0; // 0 false | 1 :true
 	virtual CtrlType GetType() = 0;
+	virtual int	     IsCreated() { return m_hwnd ? TRUE : FALSE; }
 
 	virtual void     OnDestroy() {};
 	virtual void     Draw() {};
@@ -159,12 +159,13 @@ private:
 public:
 	virtual CtrlType GetType() { return m_type; };
 
-	virtual void OnInitControl(UINT& IDS)
+	virtual int OnInitControl(UINT& IDS)
 	{
-		if (CreateMenuContext(IDS))
+		if (!CreateMenuContext(IDS))
 		{
-
+			return 0;
 		}
+		return 1;
 	}
 
 	virtual void Event(Window* window, WORD _id, WORD _event)
@@ -324,12 +325,13 @@ protected:
 public:
 	virtual CtrlType GetType() { return m_type; };
 
-	virtual void OnInitControl(UINT& IDS)
+	virtual int OnInitControl(UINT& IDS)
 	{
-		if (CreateMenuBar(IDS))
+		if (!CreateMenuBar(IDS))
 		{
-
+			return 0;
 		}
+		return 1;
 	}
 
 public:
@@ -375,7 +377,7 @@ protected:
 	UINT        m_width;
 	UINT        m_height;
 
-	wstring      m_label;
+	wstring     m_label;
 	bool        m_bClicked;
 
 	void(*m_EventFun)(Window* window, Button* btn) = NULL;
@@ -399,7 +401,7 @@ public:
 	void SetLabel(wstring lab) { m_label = lab; }
 
 public:
-	void OnInitControl(UINT& IDS)
+	int OnInitControl(UINT& IDS)
 	{
 		UINT BackupIDS = IDS;
 		m_ID = IDS++;
@@ -417,8 +419,11 @@ public:
 		{
 			m_ID = 0;
 			IDS = BackupIDS;
+			return 0;
 		}
 		this->UpdateFontFromParant();
+
+		return 1;
 	}
 
 	virtual void Event(Window* window, WORD _id, WORD _event)
@@ -702,7 +707,7 @@ public:
 	virtual CtrlType GetType() { return m_type; }
 
 public:
-	void OnInitControl(UINT& IDS)
+	virtual int OnInitControl(UINT& IDS)
 	{
 		m_ID = IDS++;
 
@@ -722,9 +727,12 @@ public:
 		{
 			m_ID = 0;
 			IDS--;
+
+			return 0;
 		}
 
 		UpdateItems();
+		return 1;
 	}
 
 	virtual void Event(Window* window, WORD _id, WORD _event)
