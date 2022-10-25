@@ -590,32 +590,6 @@ public:
 
 			return (INT_PTR)GetStockObject((HOLLOW_BRUSH));
 		}
-		case WM_NCHITTEST:
-		{
-			RECT rc;
-			POINT pt;
-			LRESULT move = NULL;
-			::GetCursorPos(&pt);
-
-			GetWindowRect(hWnd, &rc);
-			rc.bottom = rc.bottom - 466;
-
-			//if cursor position is within top layered drawn rectangle then  
-			//set move to HTCAPTION for moving the window from its client  
-			if (pt.x <= rc.right && pt.x >= rc.left && pt.y <= rc.bottom && pt.y >= rc.top)
-			{
-				move = DefWindowProc(hWnd, message, wParam, lParam);
-				if (move == HTCLIENT)
-				{
-					move = HTCAPTION;
-				}
-			}
-
-			return move;
-
-			break;
-		}
-
 		case WM_PAINT:
 		{
 			win->OnPaint();
