@@ -444,6 +444,33 @@ public:
 		return DefWindowProc(hWnd, message, wParam, lParam);
 	}
 
+
+	static void paintControlBackground(HWND hwnd, HDC dc)
+	{
+		HWND parent;
+		RECT r;
+		POINT p;
+		int saved;
+
+		parent = GetParent(hwnd);
+		if (parent == NULL)
+			return;
+		if (GetWindowRect(hwnd, &r) == 0)
+			return;
+		// the above is a window rect; convert to client rect
+		p.x = r.left;
+		p.y = r.top;
+		if (ScreenToClient(parent, &p) == 0)
+			return;
+		saved = SaveDC(dc);
+		if (saved == 0)
+			return;
+		if (SetWindowOrgEx(dc, p.x, p.y, NULL) == 0)
+			return;
+		SendMessageW(parent, WM_PRINTCLIENT, (WPARAM)dc, PRF_CLIENT);
+		if (RestoreDC(dc, saved) == 0)
+			return;
+	}
 	static LRESULT CALLBACK WndMainProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
 		Window* win = (Window*)::GetWindowLongPtr(hWnd, GWLP_USERDATA);
@@ -514,13 +541,12 @@ public:
 			// cannot use opengl context in this tunnel
 			win->OnResize();
 
-			return 0;
+			break;
 		}
 		case WM_SIZING:
 		{
-			//glViewport(0, 0, win->m_width, win->m_height);
 			win->UpdateTitle();
-			return TRUE;
+			break;
 		}
 		case WM_MOUSEWHEEL:
 		{
@@ -530,20 +556,66 @@ public:
 		}
 		case WM_COMMAND:
 		{
-			WORD wID = LOWORD(wParam); // item, control, or accelerator identifier
+			WORD wID  = LOWORD(wParam); // item, control, or accelerator identifier
 			WORD wEvt = HIWORD(wParam); // item event
-			HWND hwnd = (HWND)lParam;  // handle of control
-			win->OnCommandControl(hwnd, wID, wEvt);
+			HWND hwndControl = (HWND)lParam;  // handle of control
+			if (hwndControl)
+			{
+				Control* ctrl = (Control*)(GetWindowLongPtr(hwndControl, GWLP_USERDATA));
+				if (ctrl) ctrl->Event(win, wID, wEvt);
+			}
 			break;
 		}
 		case WM_DRAWITEM:
 		{
 			WORD wID = LOWORD(wParam); // item, control, or accelerator identifier
-			HWND hwnd = (HWND)lParam;  // handle of control
 			LPDRAWITEMSTRUCT pdis = (LPDRAWITEMSTRUCT)lParam;
-			win->OnDrawControl(hwnd, wID);
+			Control* ctrl = (Control*)(GetWindowLongPtr(pdis->hwndItem, GWLP_USERDATA));
+			if (ctrl)
+				ctrl->Draw(pdis);
 			break;
 		}
+		case WM_CTLCOLORSTATIC:
+		case WM_CTLCOLORBTN: //In order to make those edges invisble when we use RoundRect(),
+		{                //we make the color of our button's background match window's background
+			SetBkMode((HDC)wParam, TRANSPARENT);
+			HWND hwnd = (HWND)lParam;
+
+			Control* ctrl = (Control*)(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+			if (ctrl && ctrl->GetType() == CtrlType::LABEL)
+			{
+				Label* lab = static_cast<Label*>(ctrl);
+				lab->UpdateTextColor((HDC)wParam);
+			}
+
+			return (INT_PTR)GetStockObject((HOLLOW_BRUSH));
+		}
+		case WM_NCHITTEST:
+		{
+			RECT rc;
+			POINT pt;
+			LRESULT move = NULL;
+			::GetCursorPos(&pt);
+
+			GetWindowRect(hWnd, &rc);
+			rc.bottom = rc.bottom - 466;
+
+			//if cursor position is within top layered drawn rectangle then  
+			//set move to HTCAPTION for moving the window from its client  
+			if (pt.x <= rc.right && pt.x >= rc.left && pt.y <= rc.bottom && pt.y >= rc.top)
+			{
+				move = DefWindowProc(hWnd, message, wParam, lParam);
+				if (move == HTCLIENT)
+				{
+					move = HTCAPTION;
+				}
+			}
+
+			return move;
+
+			break;
+		}
+
 		case WM_PAINT:
 		{
 			win->OnPaint();
@@ -711,19 +783,19 @@ private:
 	//==================================================================================
 	// Xử lý sự kiện khi một Control được kích hoạt sự kiện                             
 	//==================================================================================
-	void OnCommandControl(HWND hwndCtrl, WORD ID, WORD Event)
-	{
-		Control * control = GetControlFormID(ID);
-		if (!control) return;
-		control->Event(this, ID, Event);
-	}
+	//void OnCommandControl(HWND hwndCtrl, WORD ID, WORD Event)
+	//{
+	//	Control * control = GetControlFormID(ID);
+	//	if (!control) return;
+	//	control->Event(this, ID, Event);
+	//}
 
-	void OnDrawControl(HWND hwndCtrl, WORD ID)
-	{
-		Control * control = GetControlFormID(ID);
-		if (!control) return;
-		control->Draw();
-	}
+	//void OnDrawControl(HWND hwndCtrl, WORD ID)
+	//{
+	//	Control * control = GetControlFormID(ID);
+	//	if (!control) return;
+	//	control->Draw();
+	//}
 
 	//==================================================================================
 	// Lấy control từ ID của nó                                                         

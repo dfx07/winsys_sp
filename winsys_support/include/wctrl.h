@@ -5,10 +5,11 @@
 // For conditions of distribution and use, see copyright notice in readme.txt       
 ////////////////////////////////////////////////////////////////////////////////////
 
-#include <CommCtrl.h>
+#include <commctrl.h>
 #include <WinUser.h>
 #include <windows.h>
 #include <vector>
+#include <gdiplus.h>
 
 class MenuContext;
 class MenuBar;
@@ -22,6 +23,7 @@ enum CtrlType
 	MENUCONTEXT,
 	MENUBAR,
 	COMBOBOX,
+	LABEL,
 };
 
 //===================================================================================
@@ -46,12 +48,19 @@ public:
 	}
 
 public:
-	virtual int      OnInitControl(UINT& IDS) = 0; // 0 false | 1 :true
+	virtual int OnInitControl(UINT& IDS) // 0 false | 1 :true
+	{
+		if (!m_hwnd || m_ID ==0)
+			return 0;
+		SetWindowLongPtr(m_hwnd, GWLP_USERDATA, (LONG_PTR)this);
+		return 1;
+	}
+
 	virtual CtrlType GetType() = 0;
 	virtual int	     IsCreated() { return m_hwnd ? TRUE : FALSE; }
 
 	virtual void     OnDestroy() {};
-	virtual void     Draw() {};
+	virtual void     Draw(LPDRAWITEMSTRUCT& ) {};
 	virtual void     Event(Window* window, WORD _id, WORD _event) {};
 	virtual bool     ContainID(INT ID) { return false; };
 	virtual void	 UpdateFontFromParant()
@@ -85,7 +94,7 @@ public:
 	void Visible(bool bVisible)
 	{
 		m_bVisble = bVisible;
-		ShowWindow(m_hwnd, m_bVisble ? TRUE : FALSE);
+		::ShowWindow(m_hwnd, m_bVisble ? TRUE : FALSE);
 	}
 };
 
@@ -165,7 +174,7 @@ public:
 		{
 			return 0;
 		}
-		return 1;
+		return Control::OnInitControl(IDS);
 	}
 
 	virtual void Event(Window* window, WORD _id, WORD _event)
@@ -331,7 +340,7 @@ public:
 		{
 			return 0;
 		}
-		return 1;
+		return Control::OnInitControl(IDS);
 	}
 
 public:
@@ -369,7 +378,7 @@ public:
 class Button : public Control
 {
 	enum { WIDTH_DEF = 80 };
-	enum { HEIGHT_DEF = 20 };
+	enum { HEIGHT_DEF = 25 };
 
 protected:
 	int         m_x;
@@ -378,15 +387,36 @@ protected:
 	UINT        m_height;
 
 	wstring     m_label;
-	bool        m_bClicked;
+	int         m_bClicked;
+
+	HBITMAP hBmp;
+	HBRUSH	m_background;
 
 	void(*m_EventFun)(Window* window, Button* btn) = NULL;
 public:
 	Button() : Control(CtrlType::BUTTON),
-		m_width(WIDTH_DEF), m_height(HEIGHT_DEF)
+		m_width(WIDTH_DEF), m_height(HEIGHT_DEF),
+		m_x(0) , m_y(0)
 	{
+		hBmp = GetHBITMAPFromImageFile(L"resources\\plus24.bmp");
+		m_background = NULL;
 	}
 
+	HBITMAP GetHBITMAPFromImageFile(const WCHAR* pFilePath)
+	{
+		Gdiplus::GdiplusStartupInput gpStartupInput;
+		ULONG_PTR gpToken;
+		Gdiplus::GdiplusStartup(&gpToken, &gpStartupInput, NULL);
+		HBITMAP result = NULL;
+		Gdiplus::Bitmap* bitmap = Gdiplus::Bitmap::FromFile(pFilePath, false);
+		if (bitmap)
+		{
+			bitmap->GetHBITMAP(Gdiplus::Color::Transparent, &result);
+			delete bitmap;
+		}
+		Gdiplus::GdiplusShutdown(gpToken);
+		return result;
+	}
 public:
 	void SetPosition(int x, int y)
 	{
@@ -405,8 +435,9 @@ public:
 	{
 		UINT BackupIDS = IDS;
 		m_ID = IDS++;
-		m_hwnd = (HWND)CreateWindow(L"BUTTON", m_label.c_str(),     // Button text 
-			WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,  // Styles 
+		m_hwnd = (HWND)CreateWindowEx(NULL, L"BUTTON", m_label.c_str(),     // Button text 
+			//WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON | BS_NOTIFY,  // Styles 
+			WS_CHILD | WS_VISIBLE | BS_OWNERDRAW | BS_PUSHBUTTON | BS_NOTIFY,
 			m_x,                                                    // x position 
 			m_y,                                                    // y position 
 			m_width,                                                // Button width
@@ -421,14 +452,13 @@ public:
 			IDS = BackupIDS;
 			return 0;
 		}
-		this->UpdateFontFromParant();
+		//SetWindowSubclass(m_hwnd, &Button::OwnerDrawButton, m_ID, 0);
 
-		return 1;
+		return Control::OnInitControl(IDS);
 	}
 
 	virtual void Event(Window* window, WORD _id, WORD _event)
 	{
-		m_bClicked = true;
 		if (!m_EventFun) return;
 
 		m_EventFun(window, this);
@@ -439,9 +469,139 @@ public:
 		m_EventFun = mn;
 	}
 
-	void Draw()
+	void OwnerDrawButton()
 	{
-		UpdateWindow(m_hwnd);
+
+	}
+
+	HBRUSH CreateGradientBrush(HDC hdc, RECT rect, COLORREF top, COLORREF bottom)
+	{
+		HBRUSH Brush = NULL;
+		HDC hdcmem = CreateCompatibleDC(hdc);
+		HBITMAP hbitmap = CreateCompatibleBitmap(hdc, rect.right - rect.left, rect.bottom - rect.top);
+		SelectObject(hdcmem, hbitmap);
+
+		int r1 = GetRValue(top), r2 = GetRValue(bottom), g1 = GetGValue(top), g2 = GetGValue(bottom), b1 = GetBValue(top), b2 = GetBValue(bottom);
+		for (int i = 0; i < rect.bottom - rect.top; i++)
+		{
+			RECT temp;
+			int r, g, b;
+			r = int(r1 + double(i * (r2 - r1) / rect.bottom - rect.top));
+			g = int(g1 + double(i * (g2 - g1) / rect.bottom - rect.top));
+			b = int(b1 + double(i * (b2 - b1) / rect.bottom - rect.top));
+			Brush = CreateSolidBrush(RGB(r, g, b));
+			temp.left = 0;
+			temp.top = i;
+			temp.right = rect.right - rect.left;
+			temp.bottom = i +1;
+			FillRect(hdcmem, &temp, Brush);
+			DeleteObject(Brush);
+		}
+		HBRUSH pattern = CreatePatternBrush(hbitmap);
+
+		DeleteDC(hdcmem);
+		DeleteObject(Brush);
+		DeleteObject(hbitmap);
+
+		return pattern;
+	}
+
+	void Draw_Border_Rectangles(RECT rect, HDC hdc, HBRUSH brush, int thinkness =1)
+	{
+		int width  = abs(rect.right - rect.left);
+		int height = abs(rect.bottom - rect.top);
+
+		RECT leftrect, rightrect, bottomrect;
+		leftrect.left = 0;
+		leftrect.top = rect.bottom - 266;
+		leftrect.right = thinkness;
+		leftrect.bottom = height;
+		//fill left rect of window for border  
+		FillRect(hdc, &leftrect, brush);
+
+		rightrect.left = width - thinkness;
+		rightrect.top = rect.bottom - 266;
+		rightrect.right = width;
+		rightrect.bottom = height;
+		//fill right rect of window  
+		FillRect(hdc, &rightrect, brush);
+
+		bottomrect.left = 0;
+		bottomrect.top = height - thinkness;
+		bottomrect.right = width;
+		bottomrect.bottom = height;
+		//fill bottom rect of window  
+		FillRect(hdc, &bottomrect, brush);
+	}
+
+	void DrawBackground(LPDRAWITEMSTRUCT& pdis)
+	{
+		if (!m_background)
+		{
+			m_background = CreateGradientBrush(pdis->hDC, pdis->rcItem, RGB(180, 0, 0), RGB(255, 180, 0));
+		}
+
+		if (!m_background)
+			return;
+
+		//Create pen for button border
+		HPEN pen = CreatePen(PS_INSIDEFRAME, 0, RGB(100, 100, 100));
+
+		//HGDIOBJ old_pen = SelectObject(pdis->hDC, pen);
+		HGDIOBJ old_brush = SelectObject(pdis->hDC, m_background);
+
+		RoundRect(pdis->hDC, pdis->rcItem.left, pdis->rcItem.top, pdis->rcItem.right, pdis->rcItem.bottom, 10, 10);
+
+		//SelectObject(pdis->hDC, old_pen);
+		SelectObject(pdis->hDC, old_brush);
+
+		DeleteObject(pen);
+	}
+
+	void Draw(LPDRAWITEMSTRUCT& pdis)
+	{
+		UINT uMsg = pdis->itemAction;
+		
+		BITMAP          bitmap01;
+		HDC             hdcMem01;
+		HGDIOBJ         oldBitmap01;
+
+		//CDC* pDC = CDC::FromHandle(hDC);
+
+		DrawBackground(pdis);
+
+		if (m_bClicked)
+		{
+			//HBRUSH brush;
+			//brush = CreateSolidBrush(RGB(100, 0, 0));
+			//Draw_Border_Rectangles(pdis->rcItem, pdis->hDC, brush);
+		}
+		else
+		{
+			//hdcMem01 = CreateCompatibleDC(pdis->hDC);
+			//oldBitmap01 = SelectObject(hdcMem01, hBmp);
+
+			//GetObject(hBmp, sizeof(bitmap01), &bitmap01);
+			//BitBlt(pdis->hDC, 0, 0, bitmap01.bmWidth, bitmap01.bmHeight, hdcMem01, 0, 0, SRCCOPY);
+
+			//SelectObject(hdcMem01, oldBitmap01);
+			//DeleteDC(hdcMem01);
+
+			//HBRUSH brush;
+			//brush = CreateSolidBrush(RGB(100, 0, 0));
+
+			//Draw_Border_Rectangles(pdis->rcItem, pdis->hDC, brush);
+		}
+
+		// reset state click
+		if (pdis->itemState & ODS_SELECTED)
+		{
+			m_bClicked = TRUE;
+		}
+		else
+		{
+			m_bClicked = FALSE;
+		}
 	}
 
 	virtual CtrlType GetType() { return m_type; };
@@ -732,7 +892,7 @@ public:
 		}
 
 		UpdateItems();
-		return 1;
+		return Control::OnInitControl(IDS);
 	}
 
 	virtual void Event(Window* window, WORD _id, WORD _event)
@@ -742,5 +902,116 @@ public:
 			GetSelectIndexItem();
 			if (m_EventSelectedChangedFun)  m_EventSelectedChangedFun(window, this);
 		}
+	}
+};
+
+struct FoxColor {
+	int r;
+	int g;
+	int b;
+};
+
+
+class Label : public Control
+{
+private:
+	std::wstring m_text;
+
+	int			 m_x;
+	int			 m_y;
+
+	FoxColor	 m_color;
+
+	int			 m_width = 100;
+	int			 m_height =30;
+
+private:
+	void UpdateText()
+	{
+		if (!m_hwnd) return;
+		SetWindowText(m_hwnd, m_text.c_str());
+	}
+	virtual CtrlType GetType() { return m_type; }
+
+
+	void CalcTextSize(int& width, int& height)
+	{
+		SIZE size;
+		HDC hdc = GetDC(m_hwnd);
+		GetTextExtentPoint32(hdc, m_text.c_str(), wcslen(m_text.c_str()), &size);
+		
+		width = size.cx;
+		height = size.cy;
+
+		ReleaseDC(m_hwnd, hdc);
+	}
+public:
+	void UpdateTextColor(HDC hdc)
+	{
+		if (!hdc) return;
+
+		SetTextColor(hdc, RGB(m_color.r, m_color.g, m_color.b));
+	}
+
+public:
+	Label(const wchar_t* text = L"")
+		: Control(CtrlType::LABEL)
+	{
+		m_text = text;
+
+		m_color.r = 255;
+		m_color.g = 255;
+		m_color.b = 255;
+	}
+
+	void SetText(const wchar_t* text)
+	{
+		m_text = text;
+		this->UpdateText();
+	}
+
+	void SetColor(int r, int g, int b)
+	{
+		m_color.r = r;
+		m_color.g = g;
+		m_color.b = b;
+
+		this->UpdateTextColor(NULL);
+	}
+
+	void SetPosition(int x, int y)
+	{
+		m_x = x;
+		m_y = y;
+	}
+
+public:
+	virtual int OnInitControl(UINT& IDS)
+	{
+		m_ID = IDS++;
+
+		int style = WS_VISIBLE | WS_CHILD ;
+
+		this->CalcTextSize(m_width, m_height);
+
+		m_hwnd = CreateWindow(L"STATIC", m_text.c_str(),
+					style,											// style + control name
+					m_x, m_y,										// x, y
+					m_width, m_height,								// width / height
+					m_hwndPar,										// Handle parent
+					(HMENU)(UINT_PTR)m_ID,							// ID
+					NULL, NULL);
+
+		// Create combobox failed !
+		if (!m_hwnd)
+		{
+			m_ID = 0;
+			IDS--;
+			return 0;
+		}
+
+		//this->SetText(m_text.c_str());
+
+		return Control::OnInitControl(IDS);
 	}
 };

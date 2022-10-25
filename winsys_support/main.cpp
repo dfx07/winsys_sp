@@ -100,6 +100,8 @@ void Draw(Window* win)
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+	//glClearColor(1.0, 0.7, 0.7, 1.0)
+
 	glColor3f(1.0, 0.0, 0.0);
 	glBegin(GL_LINES);
 	{
@@ -116,12 +118,20 @@ int main()
 	adven.m_iAntialiasing = 8;
 	//adven.m_bFullScreen = true;
 	adven.m_iModeDraw = 0;
+	adven.m_bGDIplus = true;
 
 	MenuItemBase item;
 	item.SetLabel(L"Open file");
 
 	menu = new MenuContext();
 	menu->AddItem(item);
+
+
+	Label* label = new Label();
+
+	label->SetText(L"Nguyễn Thị Hoài Thi");
+	label->SetPosition(10, 130);
+	label->SetColor(100, 100, 100);
 
 	Button* btn = new Button();
 	btn->SetLabel(L"조선말");
@@ -141,6 +151,8 @@ int main()
 	win->AddControl(menu);
 	win->AddControl(btn);
 	win->AddControl(cbb);
+	win->AddControl(label);
+
 
 	win->SetFont(L"Segoe UI", 14);
 
