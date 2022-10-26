@@ -26,6 +26,13 @@ enum CtrlType
 	LABEL,
 };
 
+
+struct win_draw_info
+{
+	RECT rect;
+	HDC  hDC = NULL;
+};
+
 //===================================================================================
 //⮟⮟ Lớp control : Lớp cơ sở triển khai các control của Window                    
 //===================================================================================
@@ -375,6 +382,14 @@ public:
 //⮟⮟ Lớp Button : Control quản lý giao diện và sự kiện Button                       
 //===================================================================================
 
+
+enum BtnState
+{
+	Click,
+	Normal,
+	Hover,
+};
+
 class Button : public Control
 {
 	enum { WIDTH_DEF = 80 };
@@ -387,18 +402,35 @@ protected:
 	UINT        m_height;
 
 	wstring     m_label;
-	int         m_bClicked;
+	BtnState    m_eState;
+	BtnState	m_eOldState;
 
 	HBITMAP hBmp;
 	HBRUSH	m_background;
+	HBRUSH	m_backgroundclick;
+	HBRUSH	m_backgroundhover;
+
+	win_draw_info draw_info;
+
+	int			m_border_width;
+	int			m_color_click;
+
 
 	void(*m_EventFun)(Window* window, Button* btn) = NULL;
+
+	
+	static WNDPROC& getproc()
+	{
+		static WNDPROC prevWndProc;
+		return prevWndProc;
+	}
+
 public:
 	Button() : Control(CtrlType::BUTTON),
 		m_width(WIDTH_DEF), m_height(HEIGHT_DEF),
-		m_x(0) , m_y(0)
+		m_x(0) , m_y(0) , m_eState(BtnState::Normal)
 	{
-		hBmp = GetHBITMAPFromImageFile(L"resources\\plus24.bmp");
+		hBmp = GetHBITMAPFromImageFile(L"resources\\plus48.png");
 		m_background = NULL;
 	}
 
@@ -435,9 +467,9 @@ public:
 	{
 		UINT BackupIDS = IDS;
 		m_ID = IDS++;
-		m_hwnd = (HWND)CreateWindowEx(NULL, L"BUTTON", m_label.c_str(),     // Button text 
+		m_hwnd = (HWND)CreateWindow( L"BUTTON", m_label.c_str(),     // Button text 
 			//WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON | BS_NOTIFY,  // Styles 
-			WS_CHILD | WS_VISIBLE | BS_OWNERDRAW | BS_PUSHBUTTON | BS_NOTIFY,
+			WS_CHILD | WS_VISIBLE | BS_OWNERDRAW | BS_NOTIFY,
 			m_x,                                                    // x position 
 			m_y,                                                    // y position 
 			m_width,                                                // Button width
@@ -453,8 +485,74 @@ public:
 			return 0;
 		}
 		//SetWindowSubclass(m_hwnd, &Button::OwnerDrawButton, m_ID, 0);
+		getproc() = (WNDPROC)SetWindowLongPtr(m_hwnd, GWLP_WNDPROC, (LONG_PTR)&ButtonProcHandle);
 
 		return Control::OnInitControl(IDS);
+	}
+
+	static void TrackMouse(HWND hwnd)
+	{
+		TRACKMOUSEEVENT tme;
+		tme.cbSize = sizeof(TRACKMOUSEEVENT);
+		tme.dwFlags = TME_HOVER | TME_LEAVE; //Type of events to track & trigger.
+		tme.dwHoverTime = 1; //How long the mouse has to be in the window to trigger a hover event.
+		tme.hwndTrack = hwnd;
+		TrackMouseEvent(&tme);
+	}
+
+	static LRESULT CALLBACK ButtonProcHandle(HWND hwndBtn, UINT uMsg, WPARAM wParam, LPARAM lParam) 
+	{
+		static bool Tracking = false;
+
+		Button* btn = (Button*)::GetWindowLongPtr(hwndBtn, GWLP_USERDATA);
+		if (!btn) return 0;
+
+		switch (uMsg)
+		{
+			case WM_MOUSEMOVE:
+			{
+				if (btn->m_eState == BtnState::Click ||
+					btn->m_eState == BtnState::Hover)
+					break;
+
+				btn->SetState(BtnState::Hover);
+
+				InvalidateRect(hwndBtn, NULL, FALSE);
+				UpdateWindow(hwndBtn);
+
+				if (!Tracking)
+				{
+					TrackMouse(hwndBtn);
+					Tracking = true;
+				}
+				break;
+			}
+			case WM_MOUSELEAVE:
+			{
+				Tracking = false;
+				btn->SetState(BtnState::Normal, true);
+				InvalidateRect(hwndBtn, NULL, FALSE);
+				UpdateWindow(hwndBtn);
+				break;
+			}
+			case WM_LBUTTONDOWN:
+			{
+				btn->SetState(BtnState::Click);
+				break;
+			}
+			case WM_RBUTTONUP:
+			case WM_LBUTTONUP:
+			{
+				btn->m_eState = btn->m_eOldState;
+				break;
+			}
+			case WM_CTLCOLORBTN:
+			{
+				SetBkMode((HDC)wParam, TRANSPARENT);
+			}
+		}
+
+		return CallWindowProc(getproc(), hwndBtn, uMsg, wParam, lParam);
 	}
 
 	virtual void Event(Window* window, WORD _id, WORD _event)
@@ -469,9 +567,11 @@ public:
 		m_EventFun = mn;
 	}
 
-	void OwnerDrawButton()
-	{
 
+	void SetState(BtnState state, bool free_oldstate = false)
+	{
+		m_eOldState = (free_oldstate) ? BtnState::Normal : m_eState;
+		m_eState = state;
 	}
 
 	HBRUSH CreateGradientBrush(HDC hdc, RECT rect, COLORREF top, COLORREF bottom)
@@ -506,6 +606,8 @@ public:
 		return pattern;
 	}
 
+
+
 	void Draw_Border_Rectangles(RECT rect, HDC hdc, HBRUSH brush, int thinkness =1)
 	{
 		int width  = abs(rect.right - rect.left);
@@ -534,74 +636,116 @@ public:
 		FillRect(hdc, &bottomrect, brush);
 	}
 
-	void DrawBackground(LPDRAWITEMSTRUCT& pdis)
+	void CreateColorButton()
 	{
 		if (!m_background)
 		{
-			m_background = CreateGradientBrush(pdis->hDC, pdis->rcItem, RGB(180, 0, 0), RGB(255, 180, 0));
+			m_background = CreateGradientBrush(draw_info.hDC, draw_info.rect, RGB(225, 225, 225), RGB(225, 225, 225));
+		}
+		if (!m_backgroundclick)
+		{
+			m_backgroundclick = CreateGradientBrush(draw_info.hDC, draw_info.rect, RGB(180, 180, 0), RGB(255, 180, 0));
+		}
+		if (!m_backgroundhover)
+		{
+			m_backgroundhover = CreateGradientBrush(draw_info.hDC, draw_info.rect, RGB(229, 241, 251), RGB(229, 241, 251));
+		}
+	}
+
+	void DrawBackground(HDC& hDC, RECT& rect, HBRUSH& background)
+	{
+		HPEN pen = NULL;
+
+		if (m_eState == BtnState::Hover)
+		{
+			pen = CreatePen(PS_INSIDEFRAME, 0, RGB(0, 120, 215));
+		}
+		else
+		{
+			pen = CreatePen(PS_INSIDEFRAME, 0, RGB(180, 180, 180));
 		}
 
-		if (!m_background)
-			return;
 
-		//Create pen for button border
-		HPEN pen = CreatePen(PS_INSIDEFRAME, 0, RGB(100, 100, 100));
+		HGDIOBJ old_pen = SelectObject(hDC, pen);
+		HGDIOBJ old_brush = SelectObject(hDC, background);
 
-		//HGDIOBJ old_pen = SelectObject(pdis->hDC, pen);
-		HGDIOBJ old_brush = SelectObject(pdis->hDC, m_background);
+		RoundRect(hDC, rect.left, rect.top, rect.right, rect.bottom, 0, 0);
 
-		RoundRect(pdis->hDC, pdis->rcItem.left, pdis->rcItem.top, pdis->rcItem.right, pdis->rcItem.bottom, 10, 10);
-
-		//SelectObject(pdis->hDC, old_pen);
-		SelectObject(pdis->hDC, old_brush);
+		SelectObject(hDC, old_pen);
+		SelectObject(hDC, old_brush);
 
 		DeleteObject(pen);
 	}
 
+	void DrawButtonClick()
+	{
+		DrawBackground(draw_info.hDC, draw_info.rect, m_backgroundclick);
+	}
+
+	void DrawButtonNormal()
+	{
+		DrawBackground(draw_info.hDC, draw_info.rect, m_background);
+	}
+
+	void DrawButtonHover()
+	{
+		DrawBackground(draw_info.hDC, draw_info.rect, m_backgroundhover);
+	}
+
+	void DrawButtonText()
+	{
+		if (m_eState == BtnState::Click)
+		{
+			SetTextColor(draw_info.hDC, RGB(255, 255, 255));
+		}
+
+		DrawText(draw_info.hDC, m_label.c_str(), -1, &draw_info.rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+	}
+
+	void DrawImage()
+	{
+		HDC     hdcMem01;
+		HGDIOBJ oldBitmap01;
+		BITMAP  bitmap01;
+
+		BLENDFUNCTION fnc;
+		fnc.BlendOp = AC_SRC_OVER;
+		fnc.BlendFlags = 0;
+		fnc.SourceConstantAlpha = 0xFF;
+		fnc.AlphaFormat = AC_SRC_ALPHA;
+
+		hdcMem01  = CreateCompatibleDC(draw_info.hDC);
+		oldBitmap01 = SelectObject(hdcMem01, hBmp);
+
+		GetObject(hBmp, sizeof(bitmap01), &bitmap01);
+		BitBlt(draw_info.hDC, 0, 0, bitmap01.bmWidth, bitmap01.bmHeight, hdcMem01, 0, 0, SRCCOPY);
+
+		//AlphaBlend(draw_info.hDC, 0, 0, bitmap01.bmWidth, bitmap01.bmHeight, hdcMem01, 0, 0, bitmap01.bmWidth, bitmap01.bmHeight, fnc);
+
+		SelectObject(hdcMem01, oldBitmap01);
+	}
+
 	void Draw(LPDRAWITEMSTRUCT& pdis)
 	{
-		UINT uMsg = pdis->itemAction;
-		
-		BITMAP          bitmap01;
-		HDC             hdcMem01;
-		HGDIOBJ         oldBitmap01;
+		draw_info.rect = pdis->rcItem;
+		draw_info.hDC  = pdis->hDC;
 
-		//CDC* pDC = CDC::FromHandle(hDC);
+		this->CreateColorButton();
 
-		DrawBackground(pdis);
-
-		if (m_bClicked)
+		if (m_eState == BtnState::Click )
 		{
-			//HBRUSH brush;
-			//brush = CreateSolidBrush(RGB(100, 0, 0));
-			//Draw_Border_Rectangles(pdis->rcItem, pdis->hDC, brush);
+			this->DrawButtonClick();
+		}
+		else if (m_eState == BtnState::Hover)
+		{
+			this->DrawButtonHover();
 		}
 		else
 		{
-			//hdcMem01 = CreateCompatibleDC(pdis->hDC);
-			//oldBitmap01 = SelectObject(hdcMem01, hBmp);
-
-			//GetObject(hBmp, sizeof(bitmap01), &bitmap01);
-			//BitBlt(pdis->hDC, 0, 0, bitmap01.bmWidth, bitmap01.bmHeight, hdcMem01, 0, 0, SRCCOPY);
-
-			//SelectObject(hdcMem01, oldBitmap01);
-			//DeleteDC(hdcMem01);
-
-			//HBRUSH brush;
-			//brush = CreateSolidBrush(RGB(100, 0, 0));
-
-			//Draw_Border_Rectangles(pdis->rcItem, pdis->hDC, brush);
+			this->DrawButtonNormal();
 		}
-
-		// reset state click
-		if (pdis->itemState & ODS_SELECTED)
-		{
-			m_bClicked = TRUE;
-		}
-		else
-		{
-			m_bClicked = FALSE;
-		}
+		//this->DrawImage();
+		this->DrawButtonText();
 	}
 
 	virtual CtrlType GetType() { return m_type; };

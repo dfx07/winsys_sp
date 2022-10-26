@@ -575,7 +575,6 @@ public:
 				ctrl->Draw(pdis);
 			break;
 		}
-		case WM_CTLCOLORSTATIC:
 		case WM_CTLCOLORBTN: //In order to make those edges invisble when we use RoundRect(),
 		{                //we make the color of our button's background match window's background
 			SetBkMode((HDC)wParam, TRANSPARENT);
@@ -1403,7 +1402,7 @@ public:
 	void UpdateStyleWindow()
 	{
 		m_pProp.m_dwExStyle = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE;     // Window Extended Style
-		m_pProp.m_dwStyle = WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN;  // Windows Style
+		m_pProp.m_dwStyle = WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_EX_TRANSPARENT;  // Windows Style
 																	//@@ WS_CLIPCHILDREN: Control của window sẽ không được vẽ khi SwapBuffer
 
 		if (m_pProp.m_bFullScreen)                           // Are We Still In Fullscreen Mode?
