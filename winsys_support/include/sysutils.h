@@ -465,6 +465,62 @@ MonitorInfo get_monitorinfo()
 	return infor;
 }
 
+/***************************************************************************
+*! @brief  : clamp value from min to max
+*! @author : thuong.nv - [Date] : 26/10/2022
+*! @param    [In] x : in range [min - max]
+*! @param    [In] min
+*! @param    [In] max 
+*! @return : value clamp
+*! @note   : N/A
+***************************************************************************/
+float clamp(float x, float min, float max)
+{
+	return (x <= min) ? min : (x >= max ? max : x);
+}
+
+/***************************************************************************
+*! @brief  : map value in range [min_s - max_s] to [min_d - max_d]
+*! @author : thuong.nv - [Date] : 26/10/2022
+*! @param    [In] x : value in range [min_s - max_s]
+*! @param    [In] min_s, max_s
+*! @param    [In] min_d, max_d
+*! @return : value map in [min_d - max_d]
+*! @note   : N/A
+***************************************************************************/
+float hard_map(float x, float min_s, float max_s, float min_d, float max_d, float epsilon)
+{
+	if (fabs(max_s - min_s) <= epsilon) return min_d;
+
+	float value = ((x - min_s)*(max_d - min_d)) / (max_s - min_s) + min_d;
+	return clamp(value, min_d, max_d);
+}
+
+/***************************************************************************
+*! @brief  : map value in range [min_s - max_s] to [min_d - max_d]
+*! @author : thuong.nv - [Date] : 26/10/2022
+*! @param    [In] x : value in range [min_s - max_s]
+*! @param    [In] min_s, max_s
+*! @param    [In] min_d, max_d
+*! @return : value map in [min_d - max_d] able out of range
+*! @note   : N/A
+***************************************************************************/
+float soft_map(float x, float min_s, float max_s, float min_d, float max_d, float epsilon)
+{
+	float A = (max_s - x);
+	float B = (min_s - x);
+
+	if (fabs(A) <= epsilon) return max_d;
+	else if (fabs(B) <= epsilon) return min_d;
+
+	if (fabs(A - B) <= epsilon)
+	{
+		return min_d;
+	}
+
+	float value = (A*min_d - B*max_d) / (A - B);
+	return value;
+}
 
 
 ___NAMESPACE_END___

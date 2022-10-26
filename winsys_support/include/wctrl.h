@@ -10,6 +10,7 @@
 #include <windows.h>
 #include <vector>
 #include <gdiplus.h>
+#include "xeasing.h"
 
 class MenuContext;
 class MenuBar;
@@ -410,6 +411,10 @@ protected:
 	HBRUSH	m_backgroundclick;
 	HBRUSH	m_backgroundhover;
 
+	EasingBack    m_easingr;
+	EasingBack    m_easingg;
+	EasingBack    m_easingb;
+
 	win_draw_info draw_info;
 
 	int			m_border_width;
@@ -531,8 +536,45 @@ public:
 			{
 				Tracking = false;
 				btn->SetState(BtnState::Normal, true);
+				SetTimer(hwndBtn, 100123, 10, (TIMERPROC)NULL);
+				btn->m_easingr.Setup(EaseMode::In, 229, 225, 0.5);
+				btn->m_easingg.Setup(EaseMode::In, 241, 225, 0.5);
+				btn->m_easingb.Setup(EaseMode::In, 251, 225, 0.5);
+
+				DeleteObject(btn->m_background);
+				btn->m_background = CreateSolidBrush(RGB(229, 241, 251));
+
+				btn->m_easingr.Start();
+				btn->m_easingg.Start();
+				btn->m_easingb.Start();
+
 				InvalidateRect(hwndBtn, NULL, FALSE);
 				UpdateWindow(hwndBtn);
+				break;
+			}
+			case WM_TIMER:
+			{
+				switch (wParam)
+				{
+					case 100123:
+					{
+						DeleteObject(btn->m_background);
+
+						float r = btn->m_easingr.Excute(10);
+						float g = btn->m_easingg.Excute(10);
+						float b = btn->m_easingb.Excute(10);
+
+						if (!btn->m_easingr.IsActive())
+						{
+							KillTimer(hwndBtn, 100123);
+						}
+
+						btn->m_background = CreateSolidBrush(RGB(r, g, b));
+						InvalidateRect(hwndBtn, NULL, FALSE);
+						//UpdateWindow(hwndBtn);
+						return 0;
+					}
+				}
 				break;
 			}
 			case WM_LBUTTONDOWN:
@@ -644,13 +686,21 @@ public:
 		}
 		if (!m_backgroundclick)
 		{
-			m_backgroundclick = CreateGradientBrush(draw_info.hDC, draw_info.rect, RGB(180, 180, 0), RGB(255, 180, 0));
+			m_backgroundclick = CreateGradientBrush(draw_info.hDC, draw_info.rect, RGB(201, 224, 247), RGB(201, 224, 247));
 		}
 		if (!m_backgroundhover)
 		{
-			m_backgroundhover = CreateGradientBrush(draw_info.hDC, draw_info.rect, RGB(229, 241, 251), RGB(229, 241, 251));
+			m_backgroundhover = CreateSolidBrush(RGB(229, 241, 251));
 		}
 	}
+
+	//int EasingColor()
+	//{
+	//	FoxColor colfrom;
+	//	FoxColor colto;
+
+	//	float delr = colto.r - colfrom.r;
+	//}
 
 	void DrawBackground(HDC& hDC, RECT& rect, HBRUSH& background)
 	{
@@ -658,13 +708,16 @@ public:
 
 		if (m_eState == BtnState::Hover)
 		{
-			pen = CreatePen(PS_INSIDEFRAME, 0, RGB(0, 120, 215));
+			pen = CreatePen(PS_INSIDEFRAME, 0, RGB(164, 206, 249));
+		}
+		else if (m_eState == BtnState::Click)
+		{
+			pen = CreatePen(PS_INSIDEFRAME, 0, RGB(98, 162, 228));
 		}
 		else
 		{
 			pen = CreatePen(PS_INSIDEFRAME, 0, RGB(180, 180, 180));
 		}
-
 
 		HGDIOBJ old_pen = SelectObject(hDC, pen);
 		HGDIOBJ old_brush = SelectObject(hDC, background);
@@ -696,7 +749,7 @@ public:
 	{
 		if (m_eState == BtnState::Click)
 		{
-			SetTextColor(draw_info.hDC, RGB(255, 255, 255));
+			SetTextColor(draw_info.hDC, RGB(255, 0, 0));
 		}
 
 		DrawText(draw_info.hDC, m_label.c_str(), -1, &draw_info.rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
@@ -744,7 +797,7 @@ public:
 		{
 			this->DrawButtonNormal();
 		}
-		//this->DrawImage();
+
 		this->DrawButtonText();
 	}
 
@@ -1050,9 +1103,9 @@ public:
 };
 
 struct FoxColor {
-	int r;
-	int g;
-	int b;
+	float r;
+	float g;
+	float b;
 };
 
 
