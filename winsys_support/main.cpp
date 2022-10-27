@@ -130,16 +130,22 @@ int main()
 	Label* label = new Label();
 
 	label->SetText(L"Nguyễn Thị Hoài Thi");
-	label->SetPosition(10, 130);
+	label->SetPosition(10, 300);
 	label->SetColor(100, 100, 100);
 
 	Button* btn = new Button();
 	btn->SetLabel(L"조선말");
 	btn->SetPosition(10, 30);
+	btn->SetSize(300, 100);
+
+	Button* btn1 = new Button();
+	btn1->SetLabel(L"조선말");
+	btn1->SetPosition(10, 160);
+	btn1->SetSize(300, 100);
 
 	Combobox* cbb = new Combobox();
 	cbb->AddItem(L"조선말", new int(5));
-	cbb->SetPosition(10, 70);
+	cbb->SetPosition(10, 400);
 
 	Window* win = fox_create_window(L"thường", 0, 0, 640, 480, &adven);
 
@@ -150,6 +156,7 @@ int main()
 	win->WriteSystemInfo(true);
 	win->AddControl(menu);
 	win->AddControl(btn);
+	win->AddControl(btn1);
 	win->AddControl(cbb);
 	win->AddControl(label);
 

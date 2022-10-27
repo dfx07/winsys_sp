@@ -390,7 +390,11 @@ protected:
     EaseType            type;           // Type easing
     EaseMode            mode;           // Mode easing
 
+	float				from;			// Temp value calulator
+	float				to;				// Temp value calulator
+
     std::vector<EasingValue>  data_list;         // list value from to | not use more data
+    std::vector<float>		  data_value;        // list value from to | not use more data
 
     float               duration;       // Time            [Second     ]
     float               cumulativeTime; // Cumulative time [Millisecond]
@@ -427,9 +431,10 @@ public:
 
         this->Reset();
     }
-    virtual void AppendExec(float _from, float _to)
+    virtual void AddExec(float _from, float _to)
     {
         data_list.push_back({_from, _to });
+		data_value.push_back(_from);
     }
 
     virtual void SetMode(EaseMode mode)
@@ -441,35 +446,61 @@ public:
     // Thực hiện tính toán giá trị animation easing với đầu vào là thời điểm t          
     // t : Giá trị đầu vào tính theo millisecond
     //==================================================================================
-    virtual float Excute(float t)
+    virtual void Update(float t)
     {
-        if (pause) return from;
+		if (pause)
+			return;
 
-        float value = to;
+		float value = 0;
+		for (int i = 0; i < data_list.size(); i++)
+		{
+			// Update value temp use for ease funtion
+			this->from = data_list[i].from;
+			this->to   = data_list[i].to;
 
-        if (cumulativeTime <= duration)
-        {
-            if (mode == EaseMode::Out)
-            {
-                value = this->EaseOut(cumulativeTime);
-            }
-            else if (mode == EaseMode::InOut)
-            {
-                value = this->EaseInOut(cumulativeTime);
-            }
-            else
-            {
-                value = this->EaseIn(cumulativeTime);
-            }
-            cumulativeTime += t;
-        }
-        else
-        {
-            pause = true;
-        }
+			value = to; //default value
 
-        return value; // Dest value
+			if (pause)
+			{
+				data_value[i] = value;
+				continue;
+			}
+
+			if (cumulativeTime <= duration)
+			{
+				if (mode == EaseMode::Out)
+				{
+					value = this->EaseOut(cumulativeTime);
+				}
+				else if (mode == EaseMode::InOut)
+				{
+					value = this->EaseInOut(cumulativeTime);
+				}
+				else
+				{
+					value = this->EaseIn(cumulativeTime);
+				}
+				cumulativeTime += t;
+			}
+			else
+			{
+				pause = true;
+			}
+			data_value[i] = value;
+		}
     }
+
+	virtual float Exec(const int& i) const
+	{
+		return data_value[i];
+	}
+
+	virtual float operator[](const int& i) const
+	{
+		return this->Exec(i);
+	}
+
+
 protected:
     virtual float EaseIn(float t)    = 0;
     virtual float EaseOut(float t)   = 0;

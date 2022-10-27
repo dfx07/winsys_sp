@@ -441,9 +441,7 @@ protected:
 	_Color3		  m_hover_color;
 	_Color3		  m_hot_color;
 
-	EasingExpo    m_easingr;
-	EasingExpo    m_easingg;
-	EasingExpo    m_easingb;
+	EasingQuint   m_easingr;
 
 	win_draw_info draw_info;
 
@@ -551,6 +549,8 @@ public:
 				btn->m_eState == BtnState::Hover)
 				break;
 
+			btn->EndX1ThemeEffect();
+
 			btn->SetState(BtnState::Hover);
 			if (!Tracking)
 			{
@@ -595,20 +595,19 @@ public:
 	}
 
 private:
-	const float m_effect_time_update = 100;
+	const float m_effect_time_update = 10;
 
 	void BeginX1ThemeEffect()
 	{
 		std::cout << ">>> Effect" << std::endl;
 		SetTimer(m_hwnd, IDC_EFFECT_X1, m_effect_time_update, (TIMERPROC)NULL);
 
-		m_easingr.Setup(EaseMode::In, m_hover_color.r, m_normal_color.r, 2);
-		m_easingg.Setup(EaseMode::In, m_hover_color.g, m_normal_color.g, 2);
-		m_easingb.Setup(EaseMode::In, m_hover_color.b, m_normal_color.b, 2);
+		m_easingr.Setup(EaseMode::In, 4);
+		m_easingr.AddExec(m_hover_color.r, m_normal_color.r);
+		m_easingr.AddExec(m_hover_color.g, m_normal_color.g);
+		m_easingr.AddExec(m_hover_color.b, m_normal_color.b);
 
 		m_easingr.Start();
-		m_easingg.Start();
-		m_easingb.Start();
 
 		DeleteObject(m_background_normal);
 		m_background_normal = CreateSolidBrush(m_hover_color.wrefcol);
@@ -616,9 +615,11 @@ private:
 
 	bool UpdateX1ThemeEffect()
 	{
-		float r = m_easingr.Excute(m_effect_time_update);
-		float g = m_easingg.Excute(m_effect_time_update);
-		float b = m_easingb.Excute(m_effect_time_update);
+		m_easingr.Update(m_effect_time_update);
+
+		float r = m_easingr.Exec(0);
+		float g = m_easingr.Exec(1);
+		float b = m_easingr.Exec(2);
 
 		DeleteObject(m_background_normal);
 		m_background_normal = CreateSolidBrush(RGB(r, g, b));
