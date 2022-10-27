@@ -117,7 +117,7 @@ int main()
 	WndProp adven;
 	adven.m_iAntialiasing = 8;
 	//adven.m_bFullScreen = true;
-	adven.m_iModeDraw = 1;
+	adven.m_iModeDraw = 0;
 	adven.m_bGDIplus = true;
 
 	MenuItemBase item;

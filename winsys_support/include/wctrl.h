@@ -384,15 +384,41 @@ public:
 //===================================================================================
 
 
-enum BtnState
+
+
+
+struct _Color3
 {
-	Click,
-	Normal,
-	Hover,
+	float	 r;
+	float	 g;
+	float	 b;
+	COLORREF wrefcol;
+
+	void set(float r = 255, float g = 255, float b = 255)
+	{
+		this->r = r;
+		this->g = g;
+		this->b = b;
+
+		wrefcol = RGB(r, g, b);
+	}
+
+	_Color3(float r = 255, float g = 255, float b= 255)
+	{
+		this->set(r, g, b);
+	}
 };
 
 class Button : public Control
 {
+	enum BtnState
+	{
+		Click,
+		Normal,
+		Hover,
+	};
+
+	enum { IDC_EFFECT_X1 = 12003 };
 	enum { WIDTH_DEF = 80 };
 	enum { HEIGHT_DEF = 25 };
 
@@ -407,13 +433,17 @@ protected:
 	BtnState	m_eOldState;
 
 	HBITMAP hBmp;
-	HBRUSH	m_background;
+	HBRUSH	m_background_normal;
 	HBRUSH	m_backgroundclick;
 	HBRUSH	m_backgroundhover;
 
-	EasingBack    m_easingr;
-	EasingBack    m_easingg;
-	EasingBack    m_easingb;
+	_Color3		  m_normal_color;
+	_Color3		  m_hover_color;
+	_Color3		  m_hot_color;
+
+	EasingExpo    m_easingr;
+	EasingExpo    m_easingg;
+	EasingExpo    m_easingb;
 
 	win_draw_info draw_info;
 
@@ -423,7 +453,7 @@ protected:
 
 	void(*m_EventFun)(Window* window, Button* btn) = NULL;
 
-	
+
 	static WNDPROC& getproc()
 	{
 		static WNDPROC prevWndProc;
@@ -433,10 +463,11 @@ protected:
 public:
 	Button() : Control(CtrlType::BUTTON),
 		m_width(WIDTH_DEF), m_height(HEIGHT_DEF),
-		m_x(0) , m_y(0) , m_eState(BtnState::Normal)
+		m_x(0), m_y(0),
+		m_eState(BtnState::Normal)
 	{
 		hBmp = GetHBITMAPFromImageFile(L"resources\\plus48.png");
-		m_background = NULL;
+		m_background_normal = NULL;
 	}
 
 	HBITMAP GetHBITMAPFromImageFile(const WCHAR* pFilePath)
@@ -472,7 +503,7 @@ public:
 	{
 		UINT BackupIDS = IDS;
 		m_ID = IDS++;
-		m_hwnd = (HWND)CreateWindow( L"BUTTON", m_label.c_str(),     // Button text 
+		m_hwnd = (HWND)CreateWindow(L"BUTTON", m_label.c_str(),     // Button text 
 			//WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON | BS_NOTIFY,  // Styles 
 			WS_CHILD | WS_VISIBLE | BS_OWNERDRAW | BS_NOTIFY,
 			m_x,                                                    // x position 
@@ -505,7 +536,7 @@ public:
 		TrackMouseEvent(&tme);
 	}
 
-	static LRESULT CALLBACK ButtonProcHandle(HWND hwndBtn, UINT uMsg, WPARAM wParam, LPARAM lParam) 
+	static LRESULT CALLBACK ButtonProcHandle(HWND hwndBtn, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
 		static bool Tracking = false;
 
@@ -514,89 +545,120 @@ public:
 
 		switch (uMsg)
 		{
-			case WM_MOUSEMOVE:
-			{
-				if (btn->m_eState == BtnState::Click ||
-					btn->m_eState == BtnState::Hover)
-					break;
-
-				btn->SetState(BtnState::Hover);
-
-				InvalidateRect(hwndBtn, NULL, FALSE);
-				UpdateWindow(hwndBtn);
-
-				if (!Tracking)
-				{
-					TrackMouse(hwndBtn);
-					Tracking = true;
-				}
+		case WM_MOUSEMOVE:
+		{
+			if (btn->m_eState == BtnState::Click ||
+				btn->m_eState == BtnState::Hover)
 				break;
-			}
-			case WM_MOUSELEAVE:
+
+			btn->SetState(BtnState::Hover);
+			if (!Tracking)
 			{
-				Tracking = false;
-				btn->SetState(BtnState::Normal, true);
-				SetTimer(hwndBtn, 100123, 10, (TIMERPROC)NULL);
-				btn->m_easingr.Setup(EaseMode::In, 229, 225, 0.5);
-				btn->m_easingg.Setup(EaseMode::In, 241, 225, 0.5);
-				btn->m_easingb.Setup(EaseMode::In, 251, 225, 0.5);
-
-				DeleteObject(btn->m_background);
-				btn->m_background = CreateSolidBrush(RGB(229, 241, 251));
-
-				btn->m_easingr.Start();
-				btn->m_easingg.Start();
-				btn->m_easingb.Start();
-
-				InvalidateRect(hwndBtn, NULL, FALSE);
-				UpdateWindow(hwndBtn);
-				break;
+				TrackMouse(hwndBtn);
+				Tracking = true;
 			}
-			case WM_TIMER:
-			{
-				switch (wParam)
-				{
-					case 100123:
-					{
-						DeleteObject(btn->m_background);
 
-						float r = btn->m_easingr.Excute(10);
-						float g = btn->m_easingg.Excute(10);
-						float b = btn->m_easingb.Excute(10);
-
-						if (!btn->m_easingr.IsActive())
-						{
-							KillTimer(hwndBtn, 100123);
-						}
-
-						btn->m_background = CreateSolidBrush(RGB(r, g, b));
-						InvalidateRect(hwndBtn, NULL, FALSE);
-						//UpdateWindow(hwndBtn);
-						return 0;
-					}
-				}
-				break;
-			}
-			case WM_LBUTTONDOWN:
-			{
-				btn->SetState(BtnState::Click);
-				break;
-			}
-			case WM_RBUTTONUP:
-			case WM_LBUTTONUP:
-			{
-				btn->m_eState = btn->m_eOldState;
-				break;
-			}
-			case WM_CTLCOLORBTN:
-			{
-				SetBkMode((HDC)wParam, TRANSPARENT);
-			}
+			InvalidateRect(hwndBtn, NULL, FALSE);
+			break;
+		}
+		case WM_MOUSELEAVE:
+		{
+			Tracking = false;
+			btn->SetState(BtnState::Normal, true);
+			btn->BeginX1ThemeEffect();
+			InvalidateRect(hwndBtn, NULL, FALSE);
+			break;
+		}
+		case WM_TIMER:
+		{
+			btn->OnTimer(wParam);
+			break;
+		}
+		case WM_LBUTTONDOWN:
+		{
+			btn->SetState(BtnState::Click);
+			break;
+		}
+		case WM_RBUTTONUP:
+		case WM_LBUTTONUP:
+		{
+			btn->m_eState = btn->m_eOldState;
+			break;
+		}
+		case WM_CTLCOLORBTN:
+		{
+			SetBkMode((HDC)wParam, TRANSPARENT);
+		}
 		}
 
 		return CallWindowProc(getproc(), hwndBtn, uMsg, wParam, lParam);
 	}
 
+private:
+	const float m_effect_time_update = 100;
+
+	void BeginX1ThemeEffect()
+	{
+		std::cout << ">>> Effect" << std::endl;
+		SetTimer(m_hwnd, IDC_EFFECT_X1, m_effect_time_update, (TIMERPROC)NULL);
+
+		m_easingr.Setup(EaseMode::In, m_hover_color.r, m_normal_color.r, 2);
+		m_easingg.Setup(EaseMode::In, m_hover_color.g, m_normal_color.g, 2);
+		m_easingb.Setup(EaseMode::In, m_hover_color.b, m_normal_color.b, 2);
+
+		m_easingr.Start();
+		m_easingg.Start();
+		m_easingb.Start();
+
+		DeleteObject(m_background_normal);
+		m_background_normal = CreateSolidBrush(m_hover_color.wrefcol);
+	}
+
+	bool UpdateX1ThemeEffect()
+	{
+		float r = m_easingr.Excute(m_effect_time_update);
+		float g = m_easingg.Excute(m_effect_time_update);
+		float b = m_easingb.Excute(m_effect_time_update);
+
+		DeleteObject(m_background_normal);
+		m_background_normal = CreateSolidBrush(RGB(r, g, b));
+
+		return m_easingr.IsActive();
+	}
+
+	void EndX1ThemeEffect()
+	{
+		std::cout << "End Effect" << std::endl;
+
+		KillTimer(m_hwnd, IDC_EFFECT_X1);
+
+		DeleteObject(m_background_normal);
+		m_background_normal = CreateSolidBrush(m_normal_color.wrefcol);
+	}
+
+	virtual void OnTimer(DWORD wParam)
+	{
+		switch (wParam)
+		{
+			case IDC_EFFECT_X1:
+			{
+				if (this->UpdateX1ThemeEffect())
+				{
+					InvalidateRect(m_hwnd, NULL, FALSE);
+					UpdateWindow(m_hwnd);
+				}
+				else
+				{
+					EndX1ThemeEffect();
+					InvalidateRect(m_hwnd, NULL, FALSE);
+				}
+
+				break;
+			}
+		}
+	}
+
+public:
 	virtual void Event(Window* window, WORD _id, WORD _event)
 	{
 		if (!m_EventFun) return;
@@ -608,7 +670,6 @@ public:
 	{
 		m_EventFun = mn;
 	}
-
 
 	void SetState(BtnState state, bool free_oldstate = false)
 	{
@@ -680,69 +741,66 @@ public:
 
 	void CreateColorButton()
 	{
-		if (!m_background)
+		if (!m_background_normal)
 		{
-			m_background = CreateGradientBrush(draw_info.hDC, draw_info.rect, RGB(225, 225, 225), RGB(225, 225, 225));
+			m_normal_color = std::move(_Color3(225, 225, 225));
+			m_background_normal = CreateSolidBrush(m_normal_color.wrefcol);
 		}
 		if (!m_backgroundclick)
 		{
-			m_backgroundclick = CreateGradientBrush(draw_info.hDC, draw_info.rect, RGB(201, 224, 247), RGB(201, 224, 247));
+			m_hot_color = std::move(_Color3(201, 224, 247));
+			m_backgroundclick = CreateSolidBrush(m_hot_color.wrefcol);
 		}
 		if (!m_backgroundhover)
 		{
-			m_backgroundhover = CreateSolidBrush(RGB(229, 241, 251));
+			m_hover_color = std::move(_Color3(229, 241, 251));
+			m_backgroundhover = CreateSolidBrush(m_hover_color.wrefcol);
 		}
 	}
 
-	//int EasingColor()
-	//{
-	//	FoxColor colfrom;
-	//	FoxColor colto;
-
-	//	float delr = colto.r - colfrom.r;
-	//}
-
-	void DrawBackground(HDC& hDC, RECT& rect, HBRUSH& background)
+	void DrawBackground(HDC& hDC, RECT& rect, HPEN pen, HBRUSH background)
 	{
-		HPEN pen = NULL;
+		HGDIOBJ old_pen = NULL;
+		HGDIOBJ old_brush = NULL;
 
-		if (m_eState == BtnState::Hover)
-		{
-			pen = CreatePen(PS_INSIDEFRAME, 0, RGB(164, 206, 249));
-		}
-		else if (m_eState == BtnState::Click)
-		{
-			pen = CreatePen(PS_INSIDEFRAME, 0, RGB(98, 162, 228));
-		}
-		else
-		{
-			pen = CreatePen(PS_INSIDEFRAME, 0, RGB(180, 180, 180));
-		}
+		if (pen)
+			old_pen = SelectObject(hDC, pen);
 
-		HGDIOBJ old_pen = SelectObject(hDC, pen);
-		HGDIOBJ old_brush = SelectObject(hDC, background);
+		old_brush = SelectObject(hDC, background);
 
 		RoundRect(hDC, rect.left, rect.top, rect.right, rect.bottom, 0, 0);
 
-		SelectObject(hDC, old_pen);
-		SelectObject(hDC, old_brush);
+		if(pen)
+			SelectObject(hDC, old_pen);
 
-		DeleteObject(pen);
+		SelectObject(hDC, old_brush);
 	}
 
 	void DrawButtonClick()
 	{
-		DrawBackground(draw_info.hDC, draw_info.rect, m_backgroundclick);
+		HPEN pen = CreatePen(PS_INSIDEFRAME, 0, RGB(98, 162, 228));
+
+		DrawBackground(draw_info.hDC, draw_info.rect, pen, m_backgroundclick);
+
+		DeleteObject(pen);
 	}
 
 	void DrawButtonNormal()
 	{
-		DrawBackground(draw_info.hDC, draw_info.rect, m_background);
+		HPEN pen = CreatePen(PS_INSIDEFRAME, 0, RGB(180, 180, 180));
+
+		DrawBackground(draw_info.hDC, draw_info.rect, pen, m_background_normal);
+
+		DeleteObject(pen);
 	}
 
 	void DrawButtonHover()
 	{
-		DrawBackground(draw_info.hDC, draw_info.rect, m_backgroundhover);
+		HPEN pen = CreatePen(PS_INSIDEFRAME, 0, RGB(164, 206, 249));
+
+		DrawBackground(draw_info.hDC, draw_info.rect, pen, m_backgroundhover);
+
+		DeleteObject(pen);
 	}
 
 	void DrawButtonText()

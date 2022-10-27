@@ -540,6 +540,10 @@ public:
 			win->UpdateTitle();
 			// cannot use opengl context in this tunnel
 			win->OnResize();
+			
+			// Refresh screen when resize window in case one thread
+			if (win->GetDrawMode() == 0)
+				win->OnDraw();
 
 			break;
 		}
@@ -575,6 +579,7 @@ public:
 				ctrl->Draw(pdis);
 			break;
 		}
+		case WM_CTLCOLORSTATIC:
 		case WM_CTLCOLORBTN: //In order to make those edges invisble when we use RoundRect(),
 		{                //we make the color of our button's background match window's background
 			SetBkMode((HDC)wParam, TRANSPARENT);
@@ -1490,6 +1495,7 @@ public:
 		return 1;
 	}
 
+	int       GetDrawMode() { return m_pProp.m_iModeDraw; }
 	int       GetWidth() { return m_width; }
 	int       GetHeight() { return m_height; }
 	int       GetMouseScroll() { return (int)m_zDeltaScroll; }
@@ -1631,7 +1637,7 @@ private:
 		while (!this->closed())
 		{
 			this->OnDraw();
-			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+			//std::this_thread::sleep_for(std::chrono::milliseconds(10));
 		}
 	}
 
