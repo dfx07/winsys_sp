@@ -501,7 +501,6 @@ public:
 			win->OnKeyBoard();
 			break;
 		}
-		// Button event
 		case WM_LBUTTONUP:
 		{
 			win->SetMouseButtonStatus(VK_LBUTTON, false);

@@ -127,11 +127,11 @@ int main()
 	menu->AddItem(item);
 
 
-	Label* label = new Label();
+	//Label* label = new Label();
 
-	label->SetText(L"Nguyễn Thị Hoài Thi");
-	label->SetPosition(10, 300);
-	label->SetColor(100, 100, 100);
+	//label->SetText(L"Nguyễn Thị Hoài Thi");
+	//label->SetPosition(10, 300);
+	//label->SetColor(100, 100, 100);
 
 	Button* btn = new Button();
 	btn->SetLabel(L"조선말");
@@ -140,12 +140,22 @@ int main()
 
 	Button* btn1 = new Button();
 	btn1->SetLabel(L"조선말");
-	btn1->SetPosition(10, 160);
+	btn1->SetPosition(10, 30+100);
 	btn1->SetSize(300, 100);
 
-	Combobox* cbb = new Combobox();
-	cbb->AddItem(L"조선말", new int(5));
-	cbb->SetPosition(10, 400);
+	Button* btn2 = new Button();
+	btn2->SetLabel(L"조선말");
+	btn2->SetPosition(10, 30+200);
+	btn2->SetSize(300, 100);
+
+	Button* btn3 = new Button();
+	btn3->SetLabel(L"조선말");
+	btn3->SetPosition(10, 30+300);
+	btn3->SetSize(300, 100);
+
+	//Combobox* cbb = new Combobox();
+	//cbb->AddItem(L"조선말", new int(5));
+	//cbb->SetPosition(10, 400);
 
 	Window* win = fox_create_window(L"thường", 0, 0, 640, 480, &adven);
 
@@ -157,8 +167,10 @@ int main()
 	win->AddControl(menu);
 	win->AddControl(btn);
 	win->AddControl(btn1);
-	win->AddControl(cbb);
-	win->AddControl(label);
+	win->AddControl(btn2);
+	win->AddControl(btn3);
+	//win->AddControl(cbb);
+	//win->AddControl(label);
 
 
 	win->SetFont(L"Segoe UI", 14);

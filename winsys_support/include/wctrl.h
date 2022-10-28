@@ -421,6 +421,8 @@ class Button : public Control
 	enum { IDC_EFFECT_X1 = 12003 };
 	enum { WIDTH_DEF = 80 };
 	enum { HEIGHT_DEF = 25 };
+private:
+	bool		m_track_leave;
 
 protected:
 	int         m_x;
@@ -441,7 +443,9 @@ protected:
 	_Color3		  m_hover_color;
 	_Color3		  m_hot_color;
 
-	EasingQuint   m_easingr;
+	//EasingExpo  m_db;
+
+	EasingEngine  m_easing;
 
 	win_draw_info draw_info;
 
@@ -461,8 +465,7 @@ protected:
 public:
 	Button() : Control(CtrlType::BUTTON),
 		m_width(WIDTH_DEF), m_height(HEIGHT_DEF),
-		m_x(0), m_y(0),
-		m_eState(BtnState::Normal)
+		m_x(0), m_y(0), m_eState(BtnState::Normal)
 	{
 		hBmp = GetHBITMAPFromImageFile(L"resources\\plus48.png");
 		m_background_normal = NULL;
@@ -536,8 +539,6 @@ public:
 
 	static LRESULT CALLBACK ButtonProcHandle(HWND hwndBtn, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
-		static bool Tracking = false;
-
 		Button* btn = (Button*)::GetWindowLongPtr(hwndBtn, GWLP_USERDATA);
 		if (!btn) return 0;
 
@@ -552,10 +553,10 @@ public:
 			btn->EndX1ThemeEffect();
 
 			btn->SetState(BtnState::Hover);
-			if (!Tracking)
+			if (!btn->m_track_leave)
 			{
 				TrackMouse(hwndBtn);
-				Tracking = true;
+				btn->m_track_leave = true;
 			}
 
 			InvalidateRect(hwndBtn, NULL, FALSE);
@@ -563,7 +564,7 @@ public:
 		}
 		case WM_MOUSELEAVE:
 		{
-			Tracking = false;
+			btn->m_track_leave = false;
 			btn->SetState(BtnState::Normal, true);
 			btn->BeginX1ThemeEffect();
 			InvalidateRect(hwndBtn, NULL, FALSE);
@@ -595,19 +596,19 @@ public:
 	}
 
 private:
-	const float m_effect_time_update = 10;
+	const float m_effect_time_update = 40;
 
 	void BeginX1ThemeEffect()
 	{
-		std::cout << ">>> Effect" << std::endl;
+		//std::cout << ">>> Effect" << std::endl;
 		SetTimer(m_hwnd, IDC_EFFECT_X1, m_effect_time_update, (TIMERPROC)NULL);
 
-		m_easingr.Setup(EaseMode::In, 4);
-		m_easingr.AddExec(m_hover_color.r, m_normal_color.r);
-		m_easingr.AddExec(m_hover_color.g, m_normal_color.g);
-		m_easingr.AddExec(m_hover_color.b, m_normal_color.b);
+		m_easing.Setup(1);
+		m_easing.AddExec(EaseType::Quint, EaseMode::In, m_hover_color.r, m_normal_color.r);
+		m_easing.AddExec(EaseType::Quint, EaseMode::In, m_hover_color.g, m_normal_color.g);
+		m_easing.AddExec(EaseType::Quint, EaseMode::In, m_hover_color.b, m_normal_color.b);
 
-		m_easingr.Start();
+		m_easing.Start();
 
 		DeleteObject(m_background_normal);
 		m_background_normal = CreateSolidBrush(m_hover_color.wrefcol);
@@ -615,21 +616,21 @@ private:
 
 	bool UpdateX1ThemeEffect()
 	{
-		m_easingr.Update(m_effect_time_update);
+		m_easing.Update(m_effect_time_update);
 
-		float r = m_easingr.Exec(0);
-		float g = m_easingr.Exec(1);
-		float b = m_easingr.Exec(2);
+		float r = m_easing.Exec(0);
+		float g = m_easing.Exec(1);
+		float b = m_easing.Exec(2);
 
 		DeleteObject(m_background_normal);
 		m_background_normal = CreateSolidBrush(RGB(r, g, b));
 
-		return m_easingr.IsActive();
+		return m_easing.IsActive();
 	}
 
 	void EndX1ThemeEffect()
 	{
-		std::cout << "End Effect" << std::endl;
+		//std::cout << "End Effect" << std::endl;
 
 		KillTimer(m_hwnd, IDC_EFFECT_X1);
 
@@ -677,40 +678,6 @@ public:
 		m_eOldState = (free_oldstate) ? BtnState::Normal : m_eState;
 		m_eState = state;
 	}
-
-	HBRUSH CreateGradientBrush(HDC hdc, RECT rect, COLORREF top, COLORREF bottom)
-	{
-		HBRUSH Brush = NULL;
-		HDC hdcmem = CreateCompatibleDC(hdc);
-		HBITMAP hbitmap = CreateCompatibleBitmap(hdc, rect.right - rect.left, rect.bottom - rect.top);
-		SelectObject(hdcmem, hbitmap);
-
-		int r1 = GetRValue(top), r2 = GetRValue(bottom), g1 = GetGValue(top), g2 = GetGValue(bottom), b1 = GetBValue(top), b2 = GetBValue(bottom);
-		for (int i = 0; i < rect.bottom - rect.top; i++)
-		{
-			RECT temp;
-			int r, g, b;
-			r = int(r1 + double(i * (r2 - r1) / rect.bottom - rect.top));
-			g = int(g1 + double(i * (g2 - g1) / rect.bottom - rect.top));
-			b = int(b1 + double(i * (b2 - b1) / rect.bottom - rect.top));
-			Brush = CreateSolidBrush(RGB(r, g, b));
-			temp.left = 0;
-			temp.top = i;
-			temp.right = rect.right - rect.left;
-			temp.bottom = i +1;
-			FillRect(hdcmem, &temp, Brush);
-			DeleteObject(Brush);
-		}
-		HBRUSH pattern = CreatePatternBrush(hbitmap);
-
-		DeleteDC(hdcmem);
-		DeleteObject(Brush);
-		DeleteObject(hbitmap);
-
-		return pattern;
-	}
-
-
 
 	void Draw_Border_Rectangles(RECT rect, HDC hdc, HBRUSH brush, int thinkness =1)
 	{
@@ -842,6 +809,8 @@ public:
 		draw_info.rect = pdis->rcItem;
 		draw_info.hDC  = pdis->hDC;
 
+		//this->DrawImage();
+
 		this->CreateColorButton();
 
 		if (m_eState == BtnState::Click )
@@ -857,7 +826,10 @@ public:
 			this->DrawButtonNormal();
 		}
 
+
 		this->DrawButtonText();
+
+		
 	}
 
 	virtual CtrlType GetType() { return m_type; };

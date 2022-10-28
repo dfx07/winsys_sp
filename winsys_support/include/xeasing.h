@@ -15,6 +15,7 @@
 #include <iostream>
 #include <stdarg.h>
 #include <vector>
+#include <combaseapi.h>
 
 #define EASING_PI               3.14159265359f
 #define EASING_EPSILON          0.001f
@@ -374,146 +375,66 @@ static float CallEasingBounce(EaseMode  mode      ,// Chế độ
     return value;
 }
 
-struct EasingValue
+struct EasingDataBase : EasingBase
 {
-    float from;
-    float to;
+public:
+    easingbase_ptr   action;
+    EaseType         type;
+    EaseMode         mode;
+    float            from;
+    float            to;
 };
 
 //===================================================================================
 // Class EasingBase : Lớp cơ sở các hiệu ứng Easing liên quan                        
 //===================================================================================
 
-class EasingBase
+interface EasingBase
 {
-protected:
-    EaseType            type;           // Type easing
-    EaseMode            mode;           // Mode easing
-
-	float				from;			// Temp value calulator
-	float				to;				// Temp value calulator
-
-    std::vector<EasingValue>  data_list;         // list value from to | not use more data
-    std::vector<float>		  data_value;        // list value from to | not use more data
-
-    float               duration;       // Time            [Second     ]
-    float               cumulativeTime; // Cumulative time [Millisecond]
-
-    bool                pause;          // State
-
-public:
-    EasingBase()
-    {
-        mode     = EaseMode::In;
-        duration = 0.f         ;
-        pause    = true;
-
-        this->Reset();
-    }
-
-    EasingBase(EaseMode _mode, float _duration)
-    {
-        this->Setup(_mode, _duration);
-    }
-
-public:
-    virtual EaseType GetType() = 0;
-    virtual void Reset()   { cumulativeTime = 0.f; }
-    virtual void Start()   { this->Reset(); pause = false;}
-    virtual void Pause()   { pause = true ; }
-    virtual void Continue(){ pause = false; }
-    virtual bool IsActive(){ return !pause; }
-    virtual void Setup(EaseMode _mode, float _duration)
-    {
-        pause    = true ;
-        mode     = _mode;
-        duration = S2MS(_duration);
-
-        this->Reset();
-    }
-    virtual void AddExec(float _from, float _to)
-    {
-        data_list.push_back({_from, _to });
-		data_value.push_back(_from);
-    }
-
-    virtual void SetMode(EaseMode mode)
-    {
-        this->mode = mode;
-    }
-
-    //==================================================================================
-    // Thực hiện tính toán giá trị animation easing với đầu vào là thời điểm t          
-    // t : Giá trị đầu vào tính theo millisecond
-    //==================================================================================
-    virtual void Update(float t)
-    {
-		if (pause)
-			return;
-
-		float value = 0;
-		for (int i = 0; i < data_list.size(); i++)
-		{
-			// Update value temp use for ease funtion
-			this->from = data_list[i].from;
-			this->to   = data_list[i].to;
-
-			value = to; //default value
-
-			if (pause)
-			{
-				data_value[i] = value;
-				continue;
-			}
-
-			if (cumulativeTime <= duration)
-			{
-				if (mode == EaseMode::Out)
-				{
-					value = this->EaseOut(cumulativeTime);
-				}
-				else if (mode == EaseMode::InOut)
-				{
-					value = this->EaseInOut(cumulativeTime);
-				}
-				else
-				{
-					value = this->EaseIn(cumulativeTime);
-				}
-				cumulativeTime += t;
-			}
-			else
-			{
-				pause = true;
-			}
-			data_value[i] = value;
-		}
-    }
-
-	virtual float Exec(const int& i) const
-	{
-		return data_value[i];
-	}
-
-	virtual float operator[](const int& i) const
-	{
-		return this->Exec(i);
-	}
-
-
-protected:
-    virtual float EaseIn(float t)    = 0;
-    virtual float EaseOut(float t)   = 0;
-    virtual float EaseInOut(float t) = 0;
+    typedef std::shared_ptr<EasingBase> easingbase_ptr;
 };
 
-class EasingBack :public EasingBase
+interface EasingAction : EasingBase
+{
+protected:
+    virtual float  EaseIn(const float t, const float duration, const float from, const float to)   = 0;
+    virtual float  EaseOut(const float t, const float duration, const float from, const float to)  = 0;
+    virtual float  EaseInOut(const float t, const float duration, const float from, const float to)= 0;
+
+    friend class EasingEngine;
+};
+
+class EasingObject : EasingBase
+{
+//↓ disable create object EasingObject inheritance - use pointer from CreateIntanse
+private:
+    struct secret {};
+    virtual void impossible(secret) = 0; // cannot override this in subclasses
+                                         // because the parameter type is private
+
+    template <class X> class AImpl : public X
+    {
+        void impossible(secret) {}; // a nested class can access private members
+    };
+//↑ disable create object EasingObject inheritance - use pointer from CreateIntanse
+
+public:
+    virtual EaseType   GetType() = 0;
+
+    template<typename T>
+    static easingbase_ptr CreateIntanseAction()
+    {
+        return std::make_shared<T>();
+    }
+};
+
+class EasingBack : public EasingAction, EasingObject
 {
 public:
     virtual EaseType GetType() { return EaseType::Back; }
 
 private:
-    virtual float EaseIn(float t)
+    virtual float EaseIn(const float t, const float duration, const float from, const float to)
     {
         float t1    = EasingHardMap(t, 0.f, duration, EASING_STANDTIME_START, EASING_STANDTIME_END);
         float vt1   = EaseInBack(t1);
@@ -522,7 +443,7 @@ private:
         return value;
     }
 
-    virtual float EaseOut(float t)
+    virtual float EaseOut(const float t, const float duration, const float from, const float to)
     {
         float t1    = EasingHardMap(t, 0.f, duration, EASING_STANDTIME_START, EASING_STANDTIME_END);
         float vt1   = EaseOutBack(t1);
@@ -531,7 +452,7 @@ private:
         return value;
     }
 
-    virtual float EaseInOut(float t)
+    virtual float EaseInOut(const float t, const float duration, const float from, const float to)
     {
         float t1    = EasingHardMap(t, 0.f, duration, EASING_STANDTIME_START, EASING_STANDTIME_END);
         float vt1   = EaseInOutBack(t1);
@@ -541,13 +462,18 @@ private:
     }
 };
 
-class EasingQuint :public EasingBase
+class EasingQuint : public EasingAction, EasingObject
 {
+public:
+    EasingQuint()
+    {
+
+    }
 public:
     virtual EaseType GetType() { return EaseType::Quint; }
 
 private:
-    virtual float EaseIn(float t)
+    virtual float EaseIn(const float t, const float duration, const float from, const float to)
     {
         float t1    = EasingHardMap(t, 0.f, duration, EASING_STANDTIME_START, EASING_STANDTIME_END);
         float vt1   = EaseInQuint(t1);
@@ -556,7 +482,7 @@ private:
         return value;
     }
 
-    virtual float EaseOut(float t)
+    virtual float EaseOut(const float t, const float duration, const float from, const float to)
     {
         float t1    = EasingHardMap(t, 0.f, duration, EASING_STANDTIME_START, EASING_STANDTIME_END);
         float vt1   = EaseOutQuint(t1);
@@ -565,7 +491,7 @@ private:
         return value;
     }
 
-    virtual float EaseInOut(float t)
+    virtual float EaseInOut(const float t, const float duration, const float from, const float to)
     {
         float t1    = EasingHardMap(t, 0.f, duration, EASING_STANDTIME_START, EASING_STANDTIME_END);
         float vt1   = EaseInOutQuint(t1);
@@ -575,13 +501,13 @@ private:
     }
 };
 
-class EasingElastic :public EasingBase
+class EasingElastic :public EasingAction, EasingObject
 {
 public:
     virtual EaseType GetType() { return EaseType::Elastic; }
 
 private:
-    virtual float EaseIn(float t)
+    virtual float EaseIn(const float t, const float duration, const float from, const float to)
     {
         float t1    = EasingHardMap(t, 0.f, duration, EASING_STANDTIME_START, EASING_STANDTIME_END);
         float vt1   = EaseInElastic(t1);
@@ -590,7 +516,7 @@ private:
         return value;
     }
 
-    virtual float EaseOut(float t)
+    virtual float EaseOut(const float t, const float duration, const float from, const float to)
     {
         float t1    = EasingHardMap(t, 0.f, duration, EASING_STANDTIME_START, EASING_STANDTIME_END);
         float vt1   = EaseOutElastic(t1);
@@ -599,7 +525,7 @@ private:
         return value;
     }
 
-    virtual float EaseInOut(float t)
+    virtual float EaseInOut(const float t, const float duration, const float from, const float to)
     {
         float t1    = EasingHardMap(t, 0.f, duration, EASING_STANDTIME_START, EASING_STANDTIME_END);
         float vt1   = EaseInOutElastic(t1);
@@ -609,13 +535,13 @@ private:
     }
 };
 
-class EasingQuart :public EasingBase
+class EasingQuart : public EasingAction, EasingObject
 {
 public:
     virtual EaseType GetType() { return EaseType::Quart; }
 
 private:
-    virtual float EaseIn(float t)
+    virtual float EaseIn(const float t, const float duration, const float from, const float to)
     {
         float t1    = EasingHardMap(t, 0.f, duration, EASING_STANDTIME_START, EASING_STANDTIME_END);
         float vt1   = EaseInQuart(t1);
@@ -624,7 +550,7 @@ private:
         return value;
     }
 
-    virtual float EaseOut(float t)
+    virtual float EaseOut(const float t, const float duration, const float from, const float to)
     {
         float t1    = EasingHardMap(t, 0.f, duration, EASING_STANDTIME_START, EASING_STANDTIME_END);
         float vt1   = EaseOutQuart(t1);
@@ -633,7 +559,7 @@ private:
         return value;
     }
 
-    virtual float EaseInOut(float t)
+    virtual float EaseInOut(const float t, const float duration, const float from, const float to)
     {
         float t1    = EasingHardMap(t, 0.f, duration, EASING_STANDTIME_START, EASING_STANDTIME_END);
         float vt1   = EaseInOutQuart(t1);
@@ -643,13 +569,13 @@ private:
     }
 };
 
-class EasingBounce :public EasingBase
+class EasingBounce : public EasingAction, EasingObject
 {
 public:
     virtual EaseType GetType() { return EaseType::Bounce; }
 
 private:
-    virtual float EaseIn(float t)
+    virtual float EaseIn(const float t, const float duration, const float from, const float to)
     {
         float t1    = EasingHardMap(t, 0.f, duration, EASING_STANDTIME_START, EASING_STANDTIME_END);
         float vt1   = EaseInBounce(t1);
@@ -658,7 +584,7 @@ private:
         return value;
     }
 
-    virtual float EaseOut(float t)
+    virtual float EaseOut(const float t, const float duration, const float from, const float to)
     {
         float t1    = EasingHardMap(t, 0.f, duration, EASING_STANDTIME_START, EASING_STANDTIME_END);
         float vt1   = EaseOutBounce(t1);
@@ -667,7 +593,7 @@ private:
         return value;
     }
 
-    virtual float EaseInOut(float t)
+    virtual float EaseInOut(const float t, const float duration, const float from, const float to)
     {
         float t1    = EasingHardMap(t, 0.f, duration, EASING_STANDTIME_START, EASING_STANDTIME_END);
         float vt1   = EaseInOutBounce(t1);
@@ -677,13 +603,13 @@ private:
     }
 };
 
-class EasingExpo :public EasingBase
+class EasingExpo : public EasingAction, EasingObject
 {
 public:
     virtual EaseType GetType() { return EaseType::Expo; }
 
 private:
-    virtual float EaseIn(float t)
+    virtual float EaseIn(const float t, const float duration, const float from, const float to)
     {
         float t1    = EasingHardMap(t, 0.f, duration, EASING_STANDTIME_START, EASING_STANDTIME_END);
         float vt1   = EaseInExpo(t1);
@@ -692,7 +618,7 @@ private:
         return value;
     }
 
-    virtual float EaseOut(float t)
+    virtual float EaseOut(const float t, const float duration, const float from, const float to)
     {
         float t1    = EasingHardMap(t, 0.f, duration, EASING_STANDTIME_START, EASING_STANDTIME_END);
         float vt1   = EaseOutExpo(t1);
@@ -701,7 +627,7 @@ private:
         return value;
     }
 
-    virtual float EaseInOut(float t)
+    virtual float EaseInOut(const float t, const float duration, const float from, const float to)
     {
         float t1    = EasingHardMap(t, 0.f, duration, EASING_STANDTIME_START, EASING_STANDTIME_END);
         float vt1   = EaseInOutExpo(t1);
@@ -710,5 +636,142 @@ private:
         return value;
     }
 };
+
+//===================================================================================
+// Class EasingEngine : Implement execute easing                                     
+//===================================================================================
+class EasingEngine : EasingBase
+{
+private:
+    // common setup property
+    float                    cumulativeTime;
+    bool                     pause;
+    float                    duration;
+
+    // data list contain
+    std::vector<EasingDataBase> m_data_list;
+    std::vector<float>          m_data_value;
+
+public:
+
+    virtual void Reset() { cumulativeTime = 0.f; }
+    virtual void Start() { this->Reset(); pause = false; }
+    virtual void Pause() { pause = true; }
+    virtual void Continue() { pause = false; }
+    virtual bool IsActive() { return !pause; }
+    virtual void Setup(float _durationsecond)
+    {
+        pause    = true;
+        duration = S2MS(_durationsecond);
+
+        this->Reset();
+    }
+
+    virtual bool AddExec(EaseType type, EaseMode mode, float _from, float _to)
+    {
+        easingbase_ptr action = NULL;
+
+        switch (type)
+        {
+        case EaseType::Back:
+            action = EasingObject::CreateIntanseAction<EasingBack>();
+            break;
+        case EaseType::Quint:
+            action = EasingObject::CreateIntanseAction<EasingQuint>();
+            break;
+        case EaseType::Elastic:
+            action = EasingObject::CreateIntanseAction<EasingElastic>();
+            break;
+        case EaseType::Quart:
+            action = EasingObject::CreateIntanseAction<EasingQuart>();
+            break;
+        case EaseType::Bounce:
+            action = EasingObject::CreateIntanseAction<EasingBounce>();
+            break;
+        case EaseType::Expo:
+            action = EasingObject::CreateIntanseAction<EasingExpo>();
+            break;
+        default:
+            break;
+        }
+
+        if (!action)
+        {
+            std::cout << "[err] : type not support !" << std::endl;
+            return false;
+        }
+
+        m_data_list.emplace_back(EasingDataBase{action, type, mode, _from, _to});
+        m_data_value.emplace_back(_from);
+
+        return true;
+    }
+
+    //==================================================================================
+    // Thực hiện tính toán giá trị animation easing với đầu vào là thời điểm t          
+    // t : Giá trị đầu vào tính theo millisecond
+    //==================================================================================
+    virtual void Update(float t)
+    {
+        if (pause)
+            return;
+
+        if (cumulativeTime <= duration)
+        {
+            cumulativeTime += t;
+        }
+        else
+        {
+            pause = true;
+            return;
+        }
+
+        float value = 0; float from = 0; float to = 0;
+        EaseMode mode = EaseMode::In;
+
+        for (int i = 0; i < m_data_list.size(); i++)
+        {
+            from = m_data_list[i].from;
+            to   = m_data_list[i].to;
+            mode = m_data_list[i].mode;
+
+            value = to; //default value
+
+            auto _action = std::dynamic_pointer_cast<EasingAction>(m_data_list[i].action);
+
+            if (pause || !_action)
+            {
+                m_data_value[i] = value;
+                continue;
+            }
+
+            if (mode == EaseMode::Out)
+            {
+                value = _action->EaseOut(cumulativeTime, duration, from, to);
+            }
+            else if (mode == EaseMode::InOut)
+            {
+                value = _action->EaseInOut(cumulativeTime, duration, from, to);
+            }
+            else
+            {
+                value = _action->EaseIn(cumulativeTime, duration, from, to);
+            }
+            m_data_value[i] = value;
+        }
+    }
+
+    virtual float Exec(const int& i) const
+    {
+        return m_data_value[i];
+    }
+
+    virtual float operator[](const int& i) const
+    {
+        return this->Exec(i);
+    }
+
+};
+
 
 #endif // !GLEASING_H
