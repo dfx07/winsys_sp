@@ -16,6 +16,7 @@
 #include <stdarg.h>
 #include <vector>
 #include <combaseapi.h>
+#include <memory>
 
 #define EASING_PI               3.14159265359f
 #define EASING_EPSILON          0.001f
@@ -375,27 +376,19 @@ static float CallEasingBounce(EaseMode  mode      ,// Chế độ
     return value;
 }
 
-struct EasingDataBase : EasingBase
-{
-public:
-    easingbase_ptr   action;
-    EaseType         type;
-    EaseMode         mode;
-    float            from;
-    float            to;
-};
-
 //===================================================================================
 // Class EasingBase : Lớp cơ sở các hiệu ứng Easing liên quan                        
 //===================================================================================
 
 interface EasingBase
 {
-    typedef std::shared_ptr<EasingBase> easingbase_ptr;
+	typedef std::shared_ptr<EasingBase> easingbase_ptr;
 };
 
-interface EasingAction : EasingBase
+interface EasingAction : public EasingBase
 {
+	typedef std::shared_ptr<EasingAction> easingaction_ptr;
+
 protected:
     virtual float  EaseIn(const float t, const float duration, const float from, const float to)   = 0;
     virtual float  EaseOut(const float t, const float duration, const float from, const float to)  = 0;
@@ -404,34 +397,39 @@ protected:
     friend class EasingEngine;
 };
 
-class EasingObject : EasingBase
+class EasingObject : public EasingBase
 {
 //↓ disable create object EasingObject inheritance - use pointer from CreateIntanse
 private:
-    struct secret {};
-    virtual void impossible(secret) = 0; // cannot override this in subclasses
-                                         // because the parameter type is private
+    //struct secret {};
+    //virtual void impossible(secret) = 0; // cannot override this in subclasses
+    //                                     // because the parameter type is private
 
-    template <class X> class AImpl : public X
-    {
-        void impossible(secret) {}; // a nested class can access private members
-    };
+    //template <class X> class AImpl : public X
+    //{
+    //    void impossible(secret) {}; // a nested class can access private members
+    //};
 //↑ disable create object EasingObject inheritance - use pointer from CreateIntanse
 
 public:
-    virtual EaseType   GetType() = 0;
+    virtual EaseType		GetType() = 0;
+	//virtual easingbase_ptr  CreateIntanseAction() = 0;
 
-    template<typename T>
-    static easingbase_ptr CreateIntanseAction()
-    {
-        return std::make_shared<T>();
-    }
+	template<typename T>
+	static easingbase_ptr	CreateInstanseActionex()
+	{
+		return std::make_shared<T>();
+	}
 };
 
 class EasingBack : public EasingAction, EasingObject
 {
 public:
     virtual EaseType GetType() { return EaseType::Back; }
+	//virtual easingbase_ptr CreateIntanseAction()
+	//{
+	//	return std::make_shared<EasingBase>(new EasingBack());
+	//}
 
 private:
     virtual float EaseIn(const float t, const float duration, const float from, const float to)
@@ -640,6 +638,28 @@ private:
 //===================================================================================
 // Class EasingEngine : Implement execute easing                                     
 //===================================================================================
+
+class EasingDataBase : EasingBase
+{
+public:
+	easingbase_ptr   action;
+	EaseType         type;
+	EaseMode         mode;
+	float            from;
+	float            to;
+
+public:
+	EasingDataBase(easingbase_ptr action, EaseType type, 
+		EaseMode mode, float from , float to)
+	{
+		this->action = action;
+		this->type	 = type	 ;
+		this->mode	 = mode	 ;
+		this->from	 = from	 ;
+		this->to	 = to	 ;
+	}
+};
+
 class EasingEngine : EasingBase
 {
 private:
@@ -669,27 +689,27 @@ public:
 
     virtual bool AddExec(EaseType type, EaseMode mode, float _from, float _to)
     {
-        easingbase_ptr action = NULL;
+        EasingAction::easingaction_ptr action = NULL;
 
         switch (type)
         {
         case EaseType::Back:
-            action = EasingObject::CreateIntanseAction<EasingBack>();
+            action = std::make_shared<EasingBack>();
             break;
         case EaseType::Quint:
-            action = EasingObject::CreateIntanseAction<EasingQuint>();
+            action = std::make_shared<EasingQuint>();
             break;
         case EaseType::Elastic:
-            action = EasingObject::CreateIntanseAction<EasingElastic>();
+            action = std::make_shared<EasingElastic>();
             break;
         case EaseType::Quart:
-            action = EasingObject::CreateIntanseAction<EasingQuart>();
+            action = std::make_shared<EasingQuart>();
             break;
         case EaseType::Bounce:
-            action = EasingObject::CreateIntanseAction<EasingBounce>();
+            action = std::make_shared<EasingBounce>();
             break;
         case EaseType::Expo:
-            action = EasingObject::CreateIntanseAction<EasingExpo>();
+            action = std::make_shared<EasingExpo>();
             break;
         default:
             break;
@@ -701,7 +721,7 @@ public:
             return false;
         }
 
-        m_data_list.emplace_back(EasingDataBase{action, type, mode, _from, _to});
+        m_data_list.emplace_back(EasingDataBase{ action, type, mode, _from, _to });
         m_data_value.emplace_back(_from);
 
         return true;
@@ -737,7 +757,7 @@ public:
 
             value = to; //default value
 
-            auto _action = std::dynamic_pointer_cast<EasingAction>(m_data_list[i].action);
+            auto _action = std::static_pointer_cast<EasingAction>(m_data_list[i].action);
 
             if (pause || !_action)
             {

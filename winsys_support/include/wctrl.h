@@ -18,6 +18,8 @@ class Window;
 
 using namespace std;
 
+#pragma comment( lib, "MSIMG32.LIB")
+
 enum CtrlType
 {
 	BUTTON,
@@ -443,6 +445,8 @@ protected:
 	_Color3		  m_hover_color;
 	_Color3		  m_hot_color;
 
+	Gdiplus::Bitmap* bitmap;
+
 	//EasingExpo  m_db;
 
 	EasingEngine  m_easing;
@@ -477,14 +481,23 @@ public:
 		ULONG_PTR gpToken;
 		Gdiplus::GdiplusStartup(&gpToken, &gpStartupInput, NULL);
 		HBITMAP result = NULL;
-		Gdiplus::Bitmap* bitmap = Gdiplus::Bitmap::FromFile(pFilePath, false);
-		if (bitmap)
-		{
-			bitmap->GetHBITMAP(Gdiplus::Color::Transparent, &result);
-			delete bitmap;
-		}
-		Gdiplus::GdiplusShutdown(gpToken);
+		bitmap = Gdiplus::Bitmap::FromFile(pFilePath, false);
+		//if (bitmap)
+		//{
+		//	bitmap->GetHBITMAP(Gdiplus::Color::Transparent, &result);
+		//	delete bitmap;
+		//}
+		//Gdiplus::GdiplusShutdown(gpToken);
 		return result;
+	}
+
+	void DrawImage()
+	{
+		Gdiplus::Graphics graphics(draw_info.hDC);
+
+		graphics.DrawImage(bitmap, 0, 0, bitmap->GetWidth(), bitmap->GetHeight());
+
+		graphics.Flush();
 	}
 public:
 	void SetPosition(int x, int y)
@@ -586,6 +599,10 @@ public:
 			btn->m_eState = btn->m_eOldState;
 			break;
 		}
+
+		case WM_ERASEBKGND:
+			return FALSE;
+			break;
 		case WM_CTLCOLORBTN:
 		{
 			SetBkMode((HDC)wParam, TRANSPARENT);
@@ -596,11 +613,10 @@ public:
 	}
 
 private:
-	const float m_effect_time_update = 40;
+	const float m_effect_time_update = 30;
 
 	void BeginX1ThemeEffect()
 	{
-		//std::cout << ">>> Effect" << std::endl;
 		SetTimer(m_hwnd, IDC_EFFECT_X1, m_effect_time_update, (TIMERPROC)NULL);
 
 		m_easing.Setup(1);
@@ -630,8 +646,6 @@ private:
 
 	void EndX1ThemeEffect()
 	{
-		//std::cout << "End Effect" << std::endl;
-
 		KillTimer(m_hwnd, IDC_EFFECT_X1);
 
 		DeleteObject(m_background_normal);
@@ -781,7 +795,7 @@ public:
 		DrawText(draw_info.hDC, m_label.c_str(), -1, &draw_info.rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 	}
 
-	void DrawImage()
+	void DrawImage1()
 	{
 		HDC     hdcMem01;
 		HGDIOBJ oldBitmap01;
@@ -791,25 +805,27 @@ public:
 		fnc.BlendOp = AC_SRC_OVER;
 		fnc.BlendFlags = 0;
 		fnc.SourceConstantAlpha = 0xFF;
-		fnc.AlphaFormat = AC_SRC_ALPHA;
+		fnc.AlphaFormat = 0;
 
 		hdcMem01  = CreateCompatibleDC(draw_info.hDC);
 		oldBitmap01 = SelectObject(hdcMem01, hBmp);
 
 		GetObject(hBmp, sizeof(bitmap01), &bitmap01);
-		BitBlt(draw_info.hDC, 0, 0, bitmap01.bmWidth, bitmap01.bmHeight, hdcMem01, 0, 0, SRCCOPY);
+		//BitBlt(draw_info.hDC, 0, 0, bitmap01.bmWidth, bitmap01.bmHeight, hdcMem01, 0, 0, SRCCOPY);
 
-		//AlphaBlend(draw_info.hDC, 0, 0, bitmap01.bmWidth, bitmap01.bmHeight, hdcMem01, 0, 0, bitmap01.bmWidth, bitmap01.bmHeight, fnc);
+
+
+
+		AlphaBlend(draw_info.hDC, 0, 0, bitmap01.bmWidth, bitmap01.bmHeight, hdcMem01, 0, 0, bitmap01.bmWidth, bitmap01.bmHeight, fnc);
 
 		SelectObject(hdcMem01, oldBitmap01);
 	}
 
 	void Draw(LPDRAWITEMSTRUCT& pdis)
 	{
+		//TODO : draw use swap buffer image (hdc) -> not draw each element
 		draw_info.rect = pdis->rcItem;
 		draw_info.hDC  = pdis->hDC;
-
-		//this->DrawImage();
 
 		this->CreateColorButton();
 
@@ -826,6 +842,7 @@ public:
 			this->DrawButtonNormal();
 		}
 
+		this->DrawImage();
 
 		this->DrawButtonText();
 
