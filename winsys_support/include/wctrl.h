@@ -47,21 +47,20 @@ struct win_draw_buffer_info
 class MemDC
 {
 private:
-	win_draw_info draw_info;
-
 	HBITMAP		oldBmp;
 	HBITMAP		newBmp;
 
+	HDC			m_oldhDC;
 public:
 	HDC			m_hDC;
 	RECT		m_rect;
 private:
-	void CreateBufferDC()
+	void CreateBufferDC(const HDC& hdc,const RECT& rect)
 	{
-		m_hDC = CreateCompatibleDC(draw_info.hDC);
-		// now we can create bitmap where we shall do our drawing
-		newBmp = CreateCompatibleBitmap(m_hDC, draw_info.rect.right - draw_info.rect.left,
-			draw_info.rect.bottom - draw_info.rect.top);
+		m_oldhDC = hdc;
+		m_rect   = rect;
+		m_hDC = CreateCompatibleDC(hdc);
+		newBmp = CreateCompatibleBitmap(hdc, rect.right - rect.left, rect.bottom - rect.top);
 		// we need to save original bitmap, and select it back when we are done,
 		// in order to avoid GDI leaks!
 		oldBmp = (HBITMAP)SelectObject(m_hDC, newBmp);
@@ -69,7 +68,6 @@ private:
 
 	void DeleteBufferDC()
 	{
-		// all done, now we need to cleanup
 		SelectObject(m_hDC, oldBmp); // select back original bitmap
 		DeleteObject(newBmp); // delete bitmap since it is no longer required
 		DeleteDC(m_hDC);   // delete memory DC since it is no longer required
@@ -78,17 +76,13 @@ private:
 public:
 	void Init(const win_draw_info& dinfo)
 	{
-		draw_info = dinfo;
-
-		m_rect = draw_info.rect;
-		this->CreateBufferDC();
+		this->CreateBufferDC(dinfo.hDC, dinfo.rect);
 	}
 
 public:
 	MemDC(const win_draw_info& dinfo)
 	{
-		draw_info = dinfo;
-		this->CreateBufferDC();
+		this->Init(dinfo);
 	}
 
 	MemDC():m_hDC(NULL), 
@@ -99,7 +93,10 @@ public:
 
 	MemDC(HDC& _hdc, RECT& _rect)
 	{
-		this->Init(std::move(win_draw_info{ _hdc, _rect }));
+		win_draw_info inf;
+		inf.hDC  = _hdc;
+		inf.rect = _rect;
+		this->Init(inf);
 	}
 
 	void DrawRoundRect(const RECT& rect, const HPEN pen, const HBRUSH brush)
@@ -122,8 +119,12 @@ public:
 
 	~MemDC()
 	{
-		BitBlt(draw_info.hDC, 0, 0, draw_info.rect.right - draw_info.rect.left,
-			draw_info.rect.bottom - draw_info.rect.top, m_hDC, 0, 0, SRCCOPY);
+		this->Flush();
+	}
+
+	void Flush()
+	{
+		BitBlt(m_oldhDC, 0, 0, m_rect.right - m_rect.left, m_rect.bottom - m_rect.top, m_hDC, 0, 0, SRCCOPY);
 
 		// all done, now we need to cleanup
 		this->DeleteBufferDC();
@@ -629,7 +630,6 @@ public:
 			IDS = BackupIDS;
 			return 0;
 		}
-		//SetWindowSubclass(m_hwnd, &Button::OwnerDrawButton, m_ID, 0);
 		getproc() = (WNDPROC)SetWindowLongPtr(m_hwnd, GWLP_WNDPROC, (LONG_PTR)&ButtonProcHandle);
 
 		return Control::OnInitControl(IDS);
@@ -708,13 +708,13 @@ public:
 	}
 
 private:
-	const float m_effect_time_update = 30;
+	const float m_effect_time_update = 16;
 
 	void BeginX1ThemeEffect()
 	{
 		SetTimer(m_hwnd, IDC_EFFECT_X1, m_effect_time_update, (TIMERPROC)NULL);
 
-		m_easing.Setup(1);
+		m_easing.Setup(0.2);
 		m_easing.AddExec(EaseType::Quint, EaseMode::In, m_hover_color.r, m_normal_color.r);
 		m_easing.AddExec(EaseType::Quint, EaseMode::In, m_hover_color.g, m_normal_color.g);
 		m_easing.AddExec(EaseType::Quint, EaseMode::In, m_hover_color.b, m_normal_color.b);
@@ -845,7 +845,7 @@ public:
 
 		old_brush = SelectObject(hDC, background);
 
-		RoundRect(hDC, rect.left, rect.top, rect.right, rect.bottom, 0, 0);
+		RoundRect(hDC, rect.left, rect.top, rect.right, rect.bottom, 15, 15);
 
 		if(pen)
 			SelectObject(hDC, old_pen);
@@ -873,7 +873,7 @@ public:
 
 	void DrawButtonHover()
 	{
-		HPEN pen = CreatePen(PS_INSIDEFRAME, 0, RGB(164, 206, 249));
+		HPEN pen = CreatePen(PS_INSIDEFRAME, 0, RGB(255, 150, 0));
 
 		DrawBackground(drawer.m_hDC, drawer.m_rect, pen, m_backgroundhover);
 
@@ -887,38 +887,14 @@ public:
 			SetTextColor(drawer.m_hDC, RGB(255, 0, 0));
 		}
 
+		SetBkMode(drawer.m_hDC, TRANSPARENT);
+
 		DrawText(drawer.m_hDC, m_label.c_str(), -1, &drawer.m_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 	}
 
-	//void DrawImage1()
-	//{
-	//	HDC     hdcMem01;
-	//	HGDIOBJ oldBitmap01;
-	//	BITMAP  bitmap01;
-
-	//	BLENDFUNCTION fnc;
-	//	fnc.BlendOp = AC_SRC_OVER;
-	//	fnc.BlendFlags = 0;
-	//	fnc.SourceConstantAlpha = 0xFF;
-	//	fnc.AlphaFormat = 0;
-
-	//	hdcMem01  = CreateCompatibleDC(draw_info.hDC);
-	//	oldBitmap01 = SelectObject(hdcMem01, hBmp);
-
-	//	GetObject(hBmp, sizeof(bitmap01), &bitmap01);
-	//	//BitBlt(draw_info.hDC, 0, 0, bitmap01.bmWidth, bitmap01.bmHeight, hdcMem01, 0, 0, SRCCOPY);
-
-
-
-
-	//	AlphaBlend(draw_info.hDC, 0, 0, bitmap01.bmWidth, bitmap01.bmHeight, hdcMem01, 0, 0, bitmap01.bmWidth, bitmap01.bmHeight, fnc);
-
-	//	SelectObject(hdcMem01, oldBitmap01);
-	//}
-
 	void Draw(LPDRAWITEMSTRUCT& pdis)
 	{
-		//TODO : draw use swap buffer image (hdc) -> not draw each element
+		//TODO : draw use swap buffer image (hdc) -> not draw each element (OK)
 		origin_draw_info.rect = pdis->rcItem;
 		origin_draw_info.hDC  = pdis->hDC;
 
@@ -939,10 +915,12 @@ public:
 			this->DrawButtonNormal();
 		}
 
+		// TODO : asign image
 		this->DrawImage();
 
 		this->DrawButtonText();
 
+		drawer.Flush();
 	}
 
 	virtual CtrlType GetType() { return m_type; };
