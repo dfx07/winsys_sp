@@ -4,6 +4,8 @@
 #include <thread>
 #include "include/sysreport.h"
 #include "include/wglhandle.h"
+#include "include/xsystrace.h"
+#include <ppl.h>
 
 ___USELIBFOX____;
 
@@ -172,7 +174,6 @@ int main()
 	//win->AddControl(cbb);
 	//win->AddControl(label);
 
-
 	win->SetFont(L"Segoe UI", 14);
 
 	if (win)
@@ -186,4 +187,15 @@ int main()
 	}
 	fox_destroy_window(win);
 
+	return 0;
+}
+
+void check()
+{
+}
+
+int main1()
+{
+	FOX_TRACE(L"message");
+	return 0;
 }

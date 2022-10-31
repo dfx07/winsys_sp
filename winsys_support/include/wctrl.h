@@ -1215,7 +1215,7 @@ public:
 		this->UpdateText();
 	}
 
-	void SetColor(int r, int g, int b)
+	void SetColor(float r, float g, float b)
 	{
 		m_color.r = r;
 		m_color.g = g;
