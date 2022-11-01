@@ -36,11 +36,28 @@ struct win_draw_info
 	RECT rect;
 };
 
-struct win_draw_buffer_info
+struct _Color4
 {
-	HDC			hDC;
-	HBITMAP		oldBmp;
-	HBITMAP		newBmp;
+	float	 r;
+	float	 g;
+	float	 b;
+	float	 a;
+
+	Gdiplus::ARGB wrefcol;
+
+	void set(float r = 255, float g = 255, float b = 255, float a = 255)
+	{
+		this->r = r;
+		this->g = g;
+		this->b = b;
+		this->a = a;
+		wrefcol = Gdiplus::Color::MakeARGB(r, g, b, a);
+	}
+
+	_Color4(float r = 255, float g = 255, float b = 255, float a =255)
+	{
+		this->set(r, g, b, a);
+	}
 };
 
 
@@ -74,15 +91,15 @@ private:
 	}
 
 public:
-	void Init(const win_draw_info& dinfo)
+	void Init(const HDC& hdc, const RECT& rect)
 	{
-		this->CreateBufferDC(dinfo.hDC, dinfo.rect);
+		this->CreateBufferDC(hdc, rect);
 	}
 
 public:
 	MemDC(const win_draw_info& dinfo)
 	{
-		this->Init(dinfo);
+		this->Init(dinfo.hDC, dinfo.rect);
 	}
 
 	MemDC():m_hDC(NULL), 
@@ -93,10 +110,7 @@ public:
 
 	MemDC(HDC& _hdc, RECT& _rect)
 	{
-		win_draw_info inf;
-		inf.hDC  = _hdc;
-		inf.rect = _rect;
-		this->Init(inf);
+		this->Init(_hdc, _rect);
 	}
 
 	void DrawRoundRect(const RECT& rect, const HPEN pen, const HBRUSH brush)
@@ -128,6 +142,162 @@ public:
 
 		// all done, now we need to cleanup
 		this->DeleteBufferDC();
+	}
+};
+
+
+
+class GDIplusRender
+{
+private:
+	HBITMAP		oldBmp;
+	HBITMAP		newBmp;
+
+private:
+	HDC			m_oldhDC;
+private:
+	HDC			m_hDC;
+	RECT		m_rect;
+
+public:
+	Gdiplus::Graphics*	m_render;
+	Gdiplus::Rect		m_rect_render;
+
+	Gdiplus::Font*		m_font_render;
+
+private:
+	void CreateBufferRender(const HDC& hdc, const RECT& rect)
+	{
+		m_oldhDC = hdc;
+		m_rect   = rect;
+		m_hDC = CreateCompatibleDC(hdc);
+		newBmp = CreateCompatibleBitmap(hdc, rect.right - rect.left, rect.bottom - rect.top);
+		oldBmp = (HBITMAP)SelectObject(m_hDC, newBmp);
+
+		// gdiplus render main
+		m_render = Gdiplus::Graphics::FromHDC(m_hDC);
+		m_render->SetSmoothingMode(Gdiplus::SmoothingModeHighQuality);
+		m_rect_render = GDIplusRender::ConvertToGdiplusRect(rect, -2, -2);
+	}
+
+	void DeleteBufferRender()
+	{
+		delete m_render; m_render = NULL;
+		SelectObject(m_hDC, oldBmp); // select back original bitmap
+		DeleteObject(newBmp); // delete bitmap since it is no longer required
+		DeleteDC(m_hDC);   // delete memory DC since it is no longer required
+	}
+
+public:
+	GDIplusRender(): m_render(NULL),
+		m_hDC(NULL),
+		m_font_render(NULL)
+	{
+
+	}
+	~GDIplusRender()
+	{
+		delete m_font_render;
+		this->Flush();
+	}
+
+	void Init(const HDC& hdc, const RECT& rect)
+	{
+		this->CreateBufferRender(hdc, rect);
+	}
+
+	void LoadFont(const wchar_t* family)
+	{
+		Gdiplus::FontFamily   fontFamily(L"Arial");
+
+		delete m_font_render;
+		m_font_render = new Gdiplus::Font(&fontFamily, 12, Gdiplus::FontStyleBold, Gdiplus::UnitPoint);
+	}
+
+	void Flush()
+	{
+		BitBlt(m_oldhDC, 0, 0, m_rect.right - m_rect.left, m_rect.bottom - m_rect.top, m_hDC, 0, 0, SRCCOPY);
+
+		// all done, now we need to cleanup
+		this->DeleteBufferRender();
+	}
+
+// Function support draw gdiplus
+private:
+	static Gdiplus::Rect ConvertToGdiplusRect(const RECT& rect, const int offset_x = 0, const int offset_y = 0)
+	{
+		return Gdiplus::Rect(rect.left, rect.top, rect.right + offset_x, rect.bottom + offset_y);
+	}
+
+	static Gdiplus::RectF Rect2RectF(const Gdiplus::Rect* rect)
+	{
+		return Gdiplus::RectF(rect->X, rect->Y, rect->Width, rect->Height);
+	}
+
+	static void funcDrawRoundRectangle(Gdiplus::Graphics* g, const Gdiplus::Pen* p, const Gdiplus::Rect& rect, const int radius)
+	{
+		Gdiplus::GraphicsPath path;
+
+		path.AddLine(rect.X + radius, rect.Y, rect.X + rect.Width - (radius * 2), rect.Y);
+		path.AddArc(rect.X + rect.Width - (radius * 2), rect.Y, radius * 2, radius * 2, 270, 90);
+		path.AddLine(rect.X + rect.Width, rect.Y + radius, rect.X + rect.Width, rect.Y + rect.Height - (radius * 2));
+		path.AddArc(rect.X + rect.Width - (radius * 2), rect.Y + rect.Height - (radius * 2), radius * 2,
+			radius * 2, 0, 90);
+		path.AddLine(rect.X + rect.Width - (radius * 2), rect.Y + rect.Height, rect.X + radius, rect.Y + rect.Height);
+		path.AddArc(rect.X, rect.Y + rect.Height - (radius * 2), radius * 2, radius * 2, 90, 90);
+		path.AddLine(rect.X, rect.Y + rect.Height - (radius * 2), rect.X, rect.Y + radius);
+		path.AddArc(rect.X, rect.Y, radius * 2, radius * 2, 180, 90);
+		path.CloseFigure();
+
+		g->DrawPath(p, &path);
+	}
+
+	void funcFillRoundRectangle(Gdiplus::Graphics* g, const Gdiplus::Brush* brush, const Gdiplus::Rect& rect,const int radius)
+	{
+		Gdiplus::GraphicsPath path;
+
+		path.AddLine(rect.X + radius, rect.Y, rect.X + rect.Width - (radius * 2), rect.Y);
+		path.AddArc(rect.X + rect.Width - (radius * 2), rect.Y, radius * 2, radius * 2, 270, 90);
+		path.AddLine(rect.X + rect.Width, rect.Y + radius, rect.X + rect.Width, rect.Y + rect.Height - (radius * 2));
+		path.AddArc(rect.X + rect.Width - (radius * 2), rect.Y + rect.Height - (radius * 2), radius * 2, radius * 2, 0, 90);
+		path.AddLine(rect.X + rect.Width - (radius * 2), rect.Y + rect.Height, rect.X + radius, rect.Y + rect.Height);
+		path.AddArc(rect.X, rect.Y + rect.Height - (radius * 2), radius * 2, radius * 2, 90, 90);
+		path.AddLine(rect.X, rect.Y + rect.Height - (radius * 2), rect.X, rect.Y + radius);
+		path.AddArc(rect.X, rect.Y, radius * 2, radius * 2, 180, 90);
+		path.CloseFigure();
+
+		g->FillPath(brush, &path);
+	}
+
+	void funDrawText(Gdiplus::Graphics* g, 
+					const Gdiplus::RectF* rect,
+					const wchar_t* text,
+					const Gdiplus::Font* font,
+					const Gdiplus::Brush* brush,
+					const Gdiplus::StringFormat* stringFormat)
+	{
+		g->DrawString(text, -1, font, *rect, stringFormat, brush);
+	}
+
+// Draw function
+public:
+	void DrawRectangle(const Gdiplus::Pen* pen, const Gdiplus::Brush* brush, int radius)
+	{
+		if (!m_render) return;
+
+		if(brush)
+			GDIplusRender::funcFillRoundRectangle(this->m_render, brush, this->m_rect_render, radius);
+		if(pen)
+			GDIplusRender::funcDrawRoundRectangle(this->m_render, pen, this->m_rect_render, radius);
+	}
+
+	void DrawTextFullRect(const wchar_t* text, const Gdiplus::Brush* brush, const Gdiplus::StringFormat* stringFormat = NULL)
+	{
+		if (!m_render || !brush || !m_font_render) return;
+
+		Gdiplus::RectF rectf = Rect2RectF(&this->m_rect_render);
+
+		GDIplusRender::funDrawText(this->m_render, &rectf, text, m_font_render, brush, stringFormat);
 	}
 };
 
@@ -480,32 +650,6 @@ public:
 //⮟⮟ Lớp Button : Control quản lý giao diện và sự kiện Button                       
 //===================================================================================
 
-
-
-
-
-struct _Color3
-{
-	float	 r;
-	float	 g;
-	float	 b;
-	COLORREF wrefcol;
-
-	void set(float r = 255, float g = 255, float b = 255)
-	{
-		this->r = r;
-		this->g = g;
-		this->b = b;
-
-		wrefcol = RGB(r, g, b);
-	}
-
-	_Color3(float r = 255, float g = 255, float b= 255)
-	{
-		this->set(r, g, b);
-	}
-};
-
 class Button : public Control
 {
 	enum BtnState
@@ -532,22 +676,20 @@ protected:
 	BtnState	m_eOldState;
 
 	HBITMAP hBmp;
-	HBRUSH	m_background_normal;
-	HBRUSH	m_backgroundclick;
-	HBRUSH	m_backgroundhover;
+	Gdiplus::Brush* m_background_normal;
+	Gdiplus::Brush* m_backgroundclick;
+	Gdiplus::Brush* m_backgroundhover;
 
-	_Color3		  m_normal_color;
-	_Color3		  m_hover_color;
-	_Color3		  m_hot_color;
+	_Color4		  m_normal_color;
+	_Color4		  m_hover_color;
+	_Color4		  m_hot_color;
 
 	Gdiplus::Bitmap* bitmap;
 
-	//EasingExpo  m_db;
-
 	EasingEngine  m_easing;
+	MemDC		  m_drawer;
 
-	win_draw_info		origin_draw_info;
-	MemDC				drawer;
+	GDIplusRender m_render;
 
 	int			m_border_width;
 	int			m_color_click;
@@ -568,7 +710,12 @@ public:
 		m_x(0), m_y(0), m_eState(BtnState::Normal)
 	{
 		hBmp = GetHBITMAPFromImageFile(L"resources\\plus48.png");
-		m_background_normal = NULL;
+	}
+	~Button()
+	{
+		delete m_background_normal;
+		delete m_backgroundhover;
+		delete m_backgroundclick;
 	}
 
 	HBITMAP GetHBITMAPFromImageFile(const WCHAR* pFilePath)
@@ -587,14 +734,7 @@ public:
 		return result;
 	}
 
-	void DrawImage()
-	{
-		Gdiplus::Graphics graphics(drawer.m_hDC);
 
-		graphics.DrawImage(bitmap, 0, 0, bitmap->GetWidth(), bitmap->GetHeight());
-
-		graphics.Flush();
-	}
 public:
 	void SetPosition(int x, int y)
 	{
@@ -721,8 +861,8 @@ private:
 
 		m_easing.Start();
 
-		DeleteObject(m_background_normal);
-		m_background_normal = CreateSolidBrush(m_hover_color.wrefcol);
+		delete m_background_normal;
+		m_background_normal = new Gdiplus::SolidBrush(m_hover_color.wrefcol);
 	}
 
 	bool UpdateX1ThemeEffect()
@@ -733,8 +873,8 @@ private:
 		float g = m_easing.Exec(1);
 		float b = m_easing.Exec(2);
 
-		DeleteObject(m_background_normal);
-		m_background_normal = CreateSolidBrush(RGB(r, g, b));
+		delete m_background_normal;
+		m_background_normal = new Gdiplus::SolidBrush(Gdiplus::Color(r, g, b));
 
 		return m_easing.IsActive();
 	}
@@ -743,8 +883,8 @@ private:
 	{
 		KillTimer(m_hwnd, IDC_EFFECT_X1);
 
-		DeleteObject(m_background_normal);
-		m_background_normal = CreateSolidBrush(m_normal_color.wrefcol);
+		delete m_background_normal;
+		m_background_normal = new Gdiplus::SolidBrush(m_normal_color.wrefcol);
 	}
 
 	virtual void OnTimer(DWORD wParam)
@@ -820,107 +960,77 @@ public:
 	{
 		if (!m_background_normal)
 		{
-			m_normal_color = std::move(_Color3(225, 225, 225));
-			m_background_normal = CreateSolidBrush(m_normal_color.wrefcol);
+			m_normal_color = std::move(_Color4(225, 225, 225));
+			m_background_normal = new Gdiplus::SolidBrush(Gdiplus::Color(m_normal_color.wrefcol));
 		}
 		if (!m_backgroundclick)
 		{
-			m_hot_color = std::move(_Color3(201, 224, 247));
-			m_backgroundclick = CreateSolidBrush(m_hot_color.wrefcol);
+			m_hot_color = std::move(_Color4(201, 224, 247));
+			m_backgroundclick = new Gdiplus::SolidBrush(Gdiplus::Color(m_hot_color.wrefcol));
 		}
 		if (!m_backgroundhover)
 		{
-			m_hover_color = std::move(_Color3(229, 241, 251));
-			m_backgroundhover = CreateSolidBrush(m_hover_color.wrefcol);
+			m_hover_color = std::move(_Color4(229, 241, 251));
+			m_backgroundhover = new Gdiplus::SolidBrush(Gdiplus::Color(m_hover_color.wrefcol));
 		}
-	}
-
-	void DrawBackground(HDC& hDC, RECT& rect, HPEN pen, HBRUSH background)
-	{
-		HGDIOBJ old_pen = NULL;
-		HGDIOBJ old_brush = NULL;
-
-		if (pen)
-			old_pen = SelectObject(hDC, pen);
-
-		old_brush = SelectObject(hDC, background);
-
-		RoundRect(hDC, rect.left, rect.top, rect.right, rect.bottom, 15, 15);
-
-		if(pen)
-			SelectObject(hDC, old_pen);
-
-		SelectObject(hDC, old_brush);
-	}
-
-	void DrawButtonClick()
-	{
-		HPEN pen = CreatePen(PS_INSIDEFRAME, 0, RGB(98, 162, 228));
-
-		DrawBackground(drawer.m_hDC, drawer.m_rect, pen, m_backgroundclick);
-
-		DeleteObject(pen);
-	}
-
-	void DrawButtonNormal()
-	{
-		HPEN pen = CreatePen(PS_INSIDEFRAME, 0, RGB(180, 180, 180));
-
-		DrawBackground(drawer.m_hDC, drawer.m_rect, pen, m_background_normal);
-
-		DeleteObject(pen);
-	}
-
-	void DrawButtonHover()
-	{
-		HPEN pen = CreatePen(PS_INSIDEFRAME, 0, RGB(255, 150, 0));
-
-		DrawBackground(drawer.m_hDC, drawer.m_rect, pen, m_backgroundhover);
-
-		DeleteObject(pen);
 	}
 
 	void DrawButtonText()
 	{
 		if (m_eState == BtnState::Click)
 		{
-			SetTextColor(drawer.m_hDC, RGB(255, 0, 0));
+			SetTextColor(m_drawer.m_hDC, RGB(255, 0, 0));
 		}
 
-		SetBkMode(drawer.m_hDC, TRANSPARENT);
+		SetBkMode(m_drawer.m_hDC, TRANSPARENT);
 
-		DrawText(drawer.m_hDC, m_label.c_str(), -1, &drawer.m_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+		DrawText(m_drawer.m_hDC, m_label.c_str(), -1, &m_drawer.m_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 	}
 
 	void Draw(LPDRAWITEMSTRUCT& pdis)
 	{
 		//TODO : draw use swap buffer image (hdc) -> not draw each element (OK)
-		origin_draw_info.rect = pdis->rcItem;
-		origin_draw_info.hDC  = pdis->hDC;
+		m_render.Init(pdis->hDC, pdis->rcItem);
+		m_render.LoadFont(L"Arial");
 
-		drawer.Init(origin_draw_info);
-		
 		this->CreateColorButton();
 
-		if (m_eState == BtnState::Click )
+		const int radius = 5;
+		if (m_eState == BtnState::Click)
 		{
-			this->DrawButtonClick();
+			Gdiplus::Pen pen(Gdiplus::Color(255, 98, 162, 228), 2);
+			m_render.DrawRectangle(&pen, m_backgroundclick, radius);
 		}
 		else if (m_eState == BtnState::Hover)
 		{
-			this->DrawButtonHover();
+			Gdiplus::Pen pen(Gdiplus::Color(255, 255, 150, 0), 2);
+			m_render.DrawRectangle(&pen, m_backgroundhover, radius);
 		}
 		else
 		{
-			this->DrawButtonNormal();
+			Gdiplus::Pen pen(Gdiplus::Color(255, 180, 180, 180), 2);
+			m_render.DrawRectangle(&pen, m_background_normal, radius);
 		}
 
-		// TODO : asign image
-		this->DrawImage();
+		Gdiplus::SolidBrush* textcolor = NULL;
+		
+		if (m_eState == BtnState::Hover)
+		{
+			textcolor = new Gdiplus::SolidBrush(Gdiplus::Color(255, 255, 255, 255));
+		}
+		else
+		{
+			textcolor = new Gdiplus::SolidBrush(Gdiplus::Color(255, 0, 0, 0));
+		}
 
-		this->DrawButtonText();
+		Gdiplus::StringFormat format;
+		format.SetAlignment(Gdiplus::StringAlignmentCenter);
+		format.SetLineAlignment(Gdiplus::StringAlignmentCenter);
+		m_render.DrawTextFullRect(this->m_label.c_str(), textcolor, &format);
 
-		drawer.Flush();
+		delete textcolor;
+
+		m_render.Flush();
 	}
 
 	virtual CtrlType GetType() { return m_type; };
