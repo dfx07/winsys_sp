@@ -51,7 +51,7 @@ struct _Color4
 		this->g = g;
 		this->b = b;
 		this->a = a;
-		wrefcol = Gdiplus::Color::MakeARGB(r, g, b, a);
+		wrefcol = Gdiplus::Color::MakeARGB(a, r, g, b);
 	}
 
 	_Color4(float r = 255, float g = 255, float b = 255, float a =255)
@@ -216,6 +216,8 @@ public:
 
 	void Flush()
 	{
+
+		// TODO: http://www.winprog.org/tutorial/transparency.html
 		BitBlt(m_oldhDC, 0, 0, m_rect.right - m_rect.left, m_rect.bottom - m_rect.top, m_hDC, 0, 0, SRCCOPY);
 
 		// all done, now we need to cleanup
@@ -836,11 +838,13 @@ public:
 		}
 
 		case WM_ERASEBKGND:
-			return FALSE;
+			return TRUE;
 			break;
 		case WM_CTLCOLORBTN:
 		{
 			SetBkMode((HDC)wParam, TRANSPARENT);
+
+			return (INT_PTR)GetStockObject((HOLLOW_BRUSH));
 		}
 		}
 
@@ -848,16 +852,16 @@ public:
 	}
 
 private:
-	const float m_effect_time_update = 16;
+	const float m_effect_time_update = 5;
 
 	void BeginX1ThemeEffect()
 	{
 		SetTimer(m_hwnd, IDC_EFFECT_X1, m_effect_time_update, (TIMERPROC)NULL);
 
-		m_easing.Setup(0.2);
-		m_easing.AddExec(EaseType::Quint, EaseMode::In, m_hover_color.r, m_normal_color.r);
-		m_easing.AddExec(EaseType::Quint, EaseMode::In, m_hover_color.g, m_normal_color.g);
-		m_easing.AddExec(EaseType::Quint, EaseMode::In, m_hover_color.b, m_normal_color.b);
+		m_easing.Setup(1);
+		m_easing.AddExec(EaseType::Expo, EaseMode::In, m_hover_color.r, m_normal_color.r);
+		m_easing.AddExec(EaseType::Expo, EaseMode::In, m_hover_color.g, m_normal_color.g);
+		m_easing.AddExec(EaseType::Expo, EaseMode::In, m_hover_color.b, m_normal_color.b);
 
 		m_easing.Start();
 
@@ -960,7 +964,7 @@ public:
 	{
 		if (!m_background_normal)
 		{
-			m_normal_color = std::move(_Color4(225, 225, 225));
+			m_normal_color = std::move(_Color4(59, 91, 179));
 			m_background_normal = new Gdiplus::SolidBrush(Gdiplus::Color(m_normal_color.wrefcol));
 		}
 		if (!m_backgroundclick)
@@ -970,7 +974,7 @@ public:
 		}
 		if (!m_backgroundhover)
 		{
-			m_hover_color = std::move(_Color4(229, 241, 251));
+			m_hover_color = std::move(_Color4(229, 241, 255));
 			m_backgroundhover = new Gdiplus::SolidBrush(Gdiplus::Color(m_hover_color.wrefcol));
 		}
 	}
@@ -991,7 +995,7 @@ public:
 	{
 		//TODO : draw use swap buffer image (hdc) -> not draw each element (OK)
 		m_render.Init(pdis->hDC, pdis->rcItem);
-		m_render.LoadFont(L"Arial");
+		m_render.LoadFont(L"Segoe UI");
 
 		this->CreateColorButton();
 
@@ -1008,7 +1012,7 @@ public:
 		}
 		else
 		{
-			Gdiplus::Pen pen(Gdiplus::Color(255, 180, 180, 180), 2);
+			Gdiplus::Pen pen(Gdiplus::Color(255, 255, 255, 255), 2);
 			m_render.DrawRectangle(&pen, m_background_normal, radius);
 		}
 
@@ -1016,11 +1020,11 @@ public:
 		
 		if (m_eState == BtnState::Hover)
 		{
-			textcolor = new Gdiplus::SolidBrush(Gdiplus::Color(255, 255, 255, 255));
+			textcolor = new Gdiplus::SolidBrush(Gdiplus::Color(255, 0, 0, 0));
 		}
 		else
 		{
-			textcolor = new Gdiplus::SolidBrush(Gdiplus::Color(255, 0, 0, 0));
+			textcolor = new Gdiplus::SolidBrush(Gdiplus::Color(255, 255, 255, 255));
 		}
 
 		Gdiplus::StringFormat format;

@@ -32,6 +32,8 @@ image text to the screen
 #define RANGE_DATA 128
 #endif // UNICODE
 
+
+
 class GLWinFontRender
 {
 	enum { RANG_BASE_LIST = RANGE_DATA };

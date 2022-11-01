@@ -102,16 +102,17 @@ void Draw(Window* win)
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	//glClearColor(1.0, 0.7, 0.7, 1.0)
+	glClearColor( 120.0 / 255.0, 139.f / 255.0, 201.0 / 255.0, 1.0);
 
-	glColor3f(1.0, 0.0, 0.0);
-	glBegin(GL_LINES);
-	{
-		glVertex2f(-x, a);
-		glVertex2f( x, a);
-	}
-	glEnd();
-	a += 0.5* win->GetFrameTime();
+	
+	//glColor3f(1.0, 0.0, 0.0);
+	//glBegin(GL_LINES);
+	//{
+	//	glVertex2f(-x, a);
+	//	glVertex2f( x, a);
+	//}
+	//glEnd();
+	//a += 0.5* win->GetFrameTime();
 }
 
 int main()
@@ -120,7 +121,7 @@ int main()
 	adven.m_iAntialiasing = 8;
 	//adven.m_bFullScreen = true;
 	adven.m_iModeDraw = 0;
-	adven.m_bGDIplus = true;
+	adven.m_bGDIplus = false;
 
 	MenuItemBase item;
 	item.SetLabel(L"Open file");
