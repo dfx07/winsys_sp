@@ -145,6 +145,43 @@ public:
 	}
 };
 
+namespace Gdiplus
+{
+	enum ImageAlignment
+	{
+		// Left edge for left-to-right text,
+		// right for right-to-left text,
+		// and top for vertical
+		ImageAlignmentNear   = 0,
+		ImageAlignmentCenter = 1,
+		ImageAlignmentFar    = 2
+	};
+
+	class ImageFormat
+	{
+	public:
+		Gdiplus::ImageAlignment m_veralign;
+		Gdiplus::ImageAlignment m_horalign;
+
+		Gdiplus::Size			m_offset;
+	public:
+		void SetVerticalAlignment(Gdiplus::ImageAlignment align)
+		{
+			m_veralign = align;
+		}
+
+		void SetHorizontalAlignment(Gdiplus::ImageAlignment align)
+		{
+			m_horalign = align;
+		}
+
+		void SetOffset(int x, int y)
+		{
+			m_offset.Width = x;
+			m_offset.Height = y;
+		}
+	};
+};
 
 
 class GDIplusRender
@@ -159,6 +196,8 @@ private:
 	HDC			m_hDC;
 	RECT		m_rect;
 
+	int					m_gdiplustatus;
+	ULONG_PTR           m_gdiplusToken;
 public:
 	Gdiplus::Graphics*	m_render;
 	Gdiplus::Rect		m_rect_render;
@@ -166,6 +205,19 @@ public:
 	Gdiplus::Font*		m_font_render;
 
 private:
+	bool CreateGDIplus()
+	{
+		Gdiplus::GdiplusStartupInput gdiplusStartupInput;
+		bool ret = Gdiplus::GdiplusStartup(&m_gdiplusToken, &gdiplusStartupInput, NULL) 
+			== Gdiplus::Status::Ok ? true : false;
+		return ret;
+	}
+
+	void ShutdownGDIplus()
+	{
+		Gdiplus::GdiplusShutdown(m_gdiplusToken);
+	}
+
 	void CreateBufferRender(const HDC& hdc, const RECT& rect)
 	{
 		m_oldhDC = hdc;
@@ -177,7 +229,7 @@ private:
 		// gdiplus render main
 		m_render = Gdiplus::Graphics::FromHDC(m_hDC);
 		m_render->SetSmoothingMode(Gdiplus::SmoothingModeHighQuality);
-		m_rect_render = GDIplusRender::ConvertToGdiplusRect(rect, -2, -2);
+		m_rect_render = GDIplusRender::ConvertToGdiplusRect(rect, -1, -1);
 	}
 
 	void DeleteBufferRender()
@@ -191,24 +243,32 @@ private:
 public:
 	GDIplusRender(): m_render(NULL),
 		m_hDC(NULL),
-		m_font_render(NULL)
+		m_font_render(NULL),
+		m_gdiplustatus(false)
 	{
-
 	}
+
 	~GDIplusRender()
 	{
 		delete m_font_render;
+		this->ShutdownGDIplus();
 		this->Flush();
 	}
 
 	void Init(const HDC& hdc, const RECT& rect)
 	{
-		this->CreateBufferRender(hdc, rect);
+		if (m_gdiplustatus == false)
+		{
+			m_gdiplustatus = this->CreateGDIplus();
+		}
+
+		if(m_gdiplustatus)
+			this->CreateBufferRender(hdc, rect);
 	}
 
-	void LoadFont(const wchar_t* family)
+	void LoadFont(const wchar_t* family= L"Arial")
 	{
-		Gdiplus::FontFamily   fontFamily(L"Arial");
+		Gdiplus::FontFamily   fontFamily(family);
 
 		delete m_font_render;
 		m_font_render = new Gdiplus::Font(&fontFamily, 12, Gdiplus::FontStyleBold, Gdiplus::UnitPoint);
@@ -271,6 +331,61 @@ private:
 		g->FillPath(brush, &path);
 	}
 
+	void funDrawImage(Gdiplus::Graphics* g,
+						Gdiplus::Image* img,
+						const Gdiplus::ImageFormat* imageformat)
+	{
+		using namespace Gdiplus;
+
+		Gdiplus::RectF rectbound = Rect2RectF(&m_rect_render);
+		Gdiplus::RectF rect = rectbound;
+
+		unsigned int image_width = img->GetWidth();
+		unsigned int image_height = img->GetHeight();
+
+		if (imageformat)
+		{
+			// alignment x
+			if (imageformat->m_veralign == Gdiplus::ImageAlignment::ImageAlignmentCenter)
+			{
+				rect.X = rectbound.X + (rectbound.Width - image_width) / 2;
+			}
+			else if (imageformat->m_veralign == Gdiplus::ImageAlignment::ImageAlignmentFar)
+			{
+				rect.X = rectbound.X + rectbound.Width - image_width;
+			}
+			else
+			{
+				rect.X = rectbound.X;
+			}
+
+			// Y alignment
+			if (imageformat->m_horalign == Gdiplus::ImageAlignment::ImageAlignmentCenter)
+			{
+				rect.Y = rectbound.Y + (rectbound.Height - image_height) / 2;
+			}
+			else if (imageformat->m_horalign == Gdiplus::ImageAlignment::ImageAlignmentFar)
+			{
+				rect.Y = rectbound.Y + rectbound.Height - image_height;
+			}
+			else
+			{
+				rect.Y = rectbound.Y;
+			}
+
+			int rect_width  = image_width < rectbound.Width ? image_width : rectbound.Width;
+			int rect_height = image_height < rectbound.Height ? image_height : rectbound.Height;
+
+			rect.Width  = rect_width;
+			rect.Height = rect_height;
+
+			rect.X += imageformat->m_offset.Width;
+			rect.Y += imageformat->m_offset.Height;
+		}
+
+		g->DrawImage(img, rect);
+	}
+
 	void funDrawText(Gdiplus::Graphics* g, 
 					const Gdiplus::RectF* rect,
 					const wchar_t* text,
@@ -301,7 +416,15 @@ public:
 
 		GDIplusRender::funDrawText(this->m_render, &rectf, text, m_font_render, brush, stringFormat);
 	}
+
+	void DrawImageFullRect(Gdiplus::Image* img, const Gdiplus::ImageFormat* imageFormat = NULL)
+	{
+		if (!m_render) return;
+
+		GDIplusRender::funDrawImage(this->m_render, img, imageFormat);
+	}
 };
+
 
 //===================================================================================
 //⮟⮟ Lớp control : Lớp cơ sở triển khai các control của Window                    
@@ -677,7 +800,6 @@ protected:
 	BtnState    m_eState;
 	BtnState	m_eOldState;
 
-	HBITMAP hBmp;
 	Gdiplus::Brush* m_background_normal;
 	Gdiplus::Brush* m_backgroundclick;
 	Gdiplus::Brush* m_backgroundhover;
@@ -686,10 +808,9 @@ protected:
 	_Color4		  m_hover_color;
 	_Color4		  m_hot_color;
 
-	Gdiplus::Bitmap* bitmap;
+	Gdiplus::Bitmap* m_image;
 
 	EasingEngine  m_easing;
-	MemDC		  m_drawer;
 
 	GDIplusRender m_render;
 
@@ -698,6 +819,8 @@ protected:
 
 
 	void(*m_EventFun)(Window* window, Button* btn) = NULL;
+	void(*m_EventFunEnter)(Window* window, Button* btn) = NULL;
+	void(*m_EventFunLeave)(Window* window, Button* btn) = NULL;
 
 
 	static WNDPROC& getproc()
@@ -711,31 +834,16 @@ public:
 		m_width(WIDTH_DEF), m_height(HEIGHT_DEF),
 		m_x(0), m_y(0), m_eState(BtnState::Normal)
 	{
-		hBmp = GetHBITMAPFromImageFile(L"resources\\plus48.png");
 	}
+
 	~Button()
 	{
 		delete m_background_normal;
 		delete m_backgroundhover;
 		delete m_backgroundclick;
-	}
 
-	HBITMAP GetHBITMAPFromImageFile(const WCHAR* pFilePath)
-	{
-		Gdiplus::GdiplusStartupInput gpStartupInput;
-		ULONG_PTR gpToken;
-		Gdiplus::GdiplusStartup(&gpToken, &gpStartupInput, NULL);
-		HBITMAP result = NULL;
-		bitmap = Gdiplus::Bitmap::FromFile(pFilePath, false);
-		//if (bitmap)
-		//{
-		//	bitmap->GetHBITMAP(Gdiplus::Color::Transparent, &result);
-		//	delete bitmap;
-		//}
-		//Gdiplus::GdiplusShutdown(gpToken);
-		return result;
+		delete m_image;
 	}
-
 
 public:
 	void SetPosition(int x, int y)
@@ -756,8 +864,7 @@ public:
 		UINT BackupIDS = IDS;
 		m_ID = IDS++;
 		m_hwnd = (HWND)CreateWindow(L"BUTTON", m_label.c_str(),     // Button text 
-			//WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON | BS_NOTIFY,  // Styles 
-			WS_CHILD | WS_VISIBLE | BS_OWNERDRAW | BS_NOTIFY,
+			WS_CHILD | WS_VISIBLE | BS_OWNERDRAW  /*| BS_NOTIFY*/,
 			m_x,                                                    // x position 
 			m_y,                                                    // y position 
 			m_width,                                                // Button width
@@ -840,11 +947,9 @@ public:
 		case WM_ERASEBKGND:
 			return TRUE;
 			break;
-		case WM_CTLCOLORBTN:
-		{
-			SetBkMode((HDC)wParam, TRANSPARENT);
-
-			return (INT_PTR)GetStockObject((HOLLOW_BRUSH));
+		case WM_CTLCOLORBTN: {
+			//SetBkMode((HDC)wParam, TRANSPARENT);
+			break;
 		}
 		}
 
@@ -929,7 +1034,25 @@ public:
 	void SetState(BtnState state, bool free_oldstate = false)
 	{
 		m_eOldState = (free_oldstate) ? BtnState::Normal : m_eState;
+
+		if ( m_EventFunEnter && state == BtnState::Hover)
+		{
+			m_EventFunEnter(NULL, this);
+		}
+		else if (m_EventFunLeave && state == BtnState::Normal)
+		{
+			m_EventFunLeave(NULL, this);
+		}
 		m_eState = state;
+	}
+
+	void SetEventEnterCallBack(void(*fun)(Window* window, Button* btn))
+	{
+		this->m_EventFunEnter = fun;
+	}
+	void SetEventLeaveCallBack(void(*fun)(Window* window, Button* btn))
+	{
+		this->m_EventFunLeave = fun;
 	}
 
 	void Draw_Border_Rectangles(RECT rect, HDC hdc, HBRUSH brush, int thinkness =1)
@@ -977,18 +1100,12 @@ public:
 			m_hover_color = std::move(_Color4(229, 241, 255));
 			m_backgroundhover = new Gdiplus::SolidBrush(Gdiplus::Color(m_hover_color.wrefcol));
 		}
-	}
 
-	void DrawButtonText()
-	{
-		if (m_eState == BtnState::Click)
+		if (!m_image)
 		{
-			SetTextColor(m_drawer.m_hDC, RGB(255, 0, 0));
+			std::wstring pFilePath = L"resources/plus48.png";
+			m_image = Gdiplus::Bitmap::FromFile(pFilePath.c_str(), false);
 		}
-
-		SetBkMode(m_drawer.m_hDC, TRANSPARENT);
-
-		DrawText(m_drawer.m_hDC, m_label.c_str(), -1, &m_drawer.m_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 	}
 
 	void Draw(LPDRAWITEMSTRUCT& pdis)
@@ -996,10 +1113,11 @@ public:
 		//TODO : draw use swap buffer image (hdc) -> not draw each element (OK)
 		m_render.Init(pdis->hDC, pdis->rcItem);
 		m_render.LoadFont(L"Segoe UI");
-
+		
 		this->CreateColorButton();
 
-		const int radius = 5;
+		// draw color
+		const int radius = 3;
 		if (m_eState == BtnState::Click)
 		{
 			Gdiplus::Pen pen(Gdiplus::Color(255, 98, 162, 228), 2);
@@ -1007,7 +1125,7 @@ public:
 		}
 		else if (m_eState == BtnState::Hover)
 		{
-			Gdiplus::Pen pen(Gdiplus::Color(255, 255, 150, 0), 2);
+			Gdiplus::Pen pen(Gdiplus::Color(255, 255, 255, 255), 2);
 			m_render.DrawRectangle(&pen, m_backgroundhover, radius);
 		}
 		else
@@ -1016,6 +1134,16 @@ public:
 			m_render.DrawRectangle(&pen, m_background_normal, radius);
 		}
 
+		// draw image
+		if (m_image)
+		{
+			Gdiplus::ImageFormat imgformat;
+			imgformat.SetVerticalAlignment(Gdiplus::ImageAlignmentNear);
+			imgformat.SetHorizontalAlignment(Gdiplus::ImageAlignmentCenter);
+			m_render.DrawImageFullRect(m_image, &imgformat);
+		}
+
+		// draw text
 		Gdiplus::SolidBrush* textcolor = NULL;
 		
 		if (m_eState == BtnState::Hover)
