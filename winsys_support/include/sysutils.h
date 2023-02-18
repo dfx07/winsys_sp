@@ -7,10 +7,10 @@
 #include <sys/stat.h>
 
 #include "xsysdef.h"
-#include "systruct.h"
+#include "xsystype.h"
 
 
-___NAMESPACE_BEGIN___
+___BEGIN_NAMESPACE___
 
 /******************************************************************************
 *! @brief  : Read bytes data file
@@ -523,4 +523,4 @@ float soft_map(float x, float min_s, float max_s, float min_d, float max_d, floa
 }
 
 
-___NAMESPACE_END___
+____END_NAMESPACE____

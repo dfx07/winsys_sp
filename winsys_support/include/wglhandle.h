@@ -19,8 +19,8 @@
 
 
 #include <chrono>
-
 #include <windows.h>
+#include <gdiplus.h>
 
 #include "GL/glew.h"
 #include "GL/wglew.h"

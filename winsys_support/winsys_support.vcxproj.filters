@@ -21,7 +21,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\systruct.h">
+    <ClInclude Include="include\xsystype.h">
       <Filter>Header Files\sys</Filter>
     </ClInclude>
     <ClInclude Include="include\sysutils.h">

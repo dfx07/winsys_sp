@@ -1,34 +1,43 @@
-﻿// File: xsysdef.h   -- define system                                               
-// Copyright (C) 2021-2022 Thuong.NV   Created : 08/10/2022                         
-// For conditions of distribution and use, see copyright notice in readme.txt       
-////////////////////////////////////////////////////////////////////////////////////
-#pragma once
+﻿/*!*********************************************************************************
+* @Copyright (C) 2021-2022 thuong.nv <thuong.nv.mta@gmail.com>
+*            All rights reserved.
+************************************************************************************
+* @file     xsysdef.h
+* @create   Nov 15, 2022
+* @brief    Library define system on window os
+* @note     For conditions of distribution and use, see copyright notice in readme.txt
+************************************************************************************/
+#ifndef XSYSDEF_H
+#define XSYSDEF_H
 
-#include <gdiplus.h>
-
+#undef  IN
 #define IN  /*INPUT */
+
+#undef  OUT
 #define OUT /*OUTPUT*/
 
-#define ___NAMESPACE_BEGIN___ namespace fox {
-#define ___NAMESPACE_END___					}
-
-#define	___USELIBFOX____	  using namespace fox
-
+#define ___BEGIN_NAMESPACE___ namespace fox	  {
+#define ____END_NAMESPACE____				  }
+#define	____USE_NAMESPACE____ using namespace fox;
 
 
-// Information monitor
-struct MonitorInfo
-{
-	DWORD		  WIDTH;
-	DWORD		  HEIGHT;
-	DWORD		  DISFREQ;
-	DWORD		  VERSION;
-	std::string   NAME;
-};
+#ifdef _EXPORT_
+	#define Dllexport  __declspec( dllexport )
+#else
+	#define Dllexport
+#endif
 
-struct GDIplusToken
-{
-	ULONG_PTR						 m_id;
-	Gdiplus::GdiplusStartupInput     m_prop;
-};
+#define SAFE_DELETE(p) {delete p; p = NULL;}
+#define SAFE_DELETE_ARRAY(p) {delete[] p; p = NULL;}
 
+// Window define
+#if defined(_WIN32) || defined(_WIN64)
+	#include <Windows.h>
+
+// Linux define
+#else 
+	typedef unsigned long		DWORD
+	typedef unsigned short      WORD;
+#endif
+
+#endif // XSYSDEF_H
