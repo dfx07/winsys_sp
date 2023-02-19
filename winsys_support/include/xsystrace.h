@@ -8,7 +8,7 @@
 #include <fstream>
 #include "xsysdef.h"
 
-___NAMESPACE_BEGIN___
+___BEGIN_NAMESPACE___
 
 /******************************************************************************
 *! @brief  : tracker function support
@@ -214,4 +214,4 @@ void tracker_outstring_state(int state, const char* filename, int linenum, bool 
 #endif // DEBUG
 
 
-___NAMESPACE_END___
+____END_NAMESPACE____

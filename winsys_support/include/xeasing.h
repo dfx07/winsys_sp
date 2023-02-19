@@ -7,8 +7,6 @@
 // Chỉ nên sử dụng nó với một số chức năng cơ bản, đối với các hiện tượng vật lý nên
 // sử dụng các thành phần vật lý để tạo ra cảm giác thật                            
 //==================================================================================
-
-
 #ifndef GLEASING_H
 #define GLEASING_H
 

@@ -1,24 +1,35 @@
-﻿#pragma once
-////////////////////////////////////////////////////////////////////////////////////
-// File: WinControl.cpp   -- Create and handle event control the window             
-// Copyright (C) 2020-2022 Thuong.NV   Created : 22/04/2022                         
-// For conditions of distribution and use, see copyright notice in readme.txt       
-////////////////////////////////////////////////////////////////////////////////////
+﻿////////////////////////////////////////////////////////////////////////////////////
+/*!*********************************************************************************
+* @Copyright (C) 2021-2022 thuong.nv <thuong.nv.mta@gmail.com>
+*            All rights reserved.
+************************************************************************************
+* @file     wglctrl.h
+* @create   Nov 15, 2022
+* @brief    Create and handle event control the window
+* @note     For conditions of distribution and use, see copyright notice in readme.txt
+************************************************************************************/
+#ifndef WGLCTRL_H
+#define WGLCTRL_H
 
 #include <commctrl.h>
 #include <WinUser.h>
 #include <windows.h>
 #include <vector>
 #include <gdiplus.h>
+
 #include "xeasing.h"
 
+#pragma comment( lib, "MSIMG32.LIB")
+
+
+___BEGIN_NAMESPACE___
+/// ////////////////////////////////////////////////////////////////////////////////
+/// Control class definition and declaration
+/// ////////////////////////////////////////////////////////////////////////////////
+/// 
 class MenuContext;
 class MenuBar;
 class Window;
-
-using namespace std;
-
-#pragma comment( lib, "MSIMG32.LIB")
 
 enum CtrlType
 {
@@ -76,7 +87,7 @@ private:
 	{
 		m_oldhDC = hdc;
 		m_rect   = rect;
-		m_hDC = CreateCompatibleDC(hdc);
+		m_hDC  = CreateCompatibleDC(hdc);
 		newBmp = CreateCompatibleBitmap(hdc, rect.right - rect.left, rect.bottom - rect.top);
 		// we need to save original bitmap, and select it back when we are done,
 		// in order to avoid GDI leaks!
@@ -144,8 +155,6 @@ public:
 		this->DeleteBufferDC();
 	}
 };
-
-
 
 class GDIplusRender
 {
@@ -398,20 +407,20 @@ public:
 	};
 
 	void   SetEvent(void(*mn)(Window*, Control*)) { m_EventFun = mn; }
-	void   SetLabel(wstring lab) { m_label = lab; }
+	void   SetLabel(std::wstring lab) { m_label = lab; }
 	void   SetType(UINT type) { m_type = type; }
 	void   SetID(UINT id) { m_ID = id; }
 
-	wstring GetLabel() { return m_label; }
-	UINT   GetType()   { return m_type; }
-	UINT   GetID()     { return m_ID; }
+	std::wstring GetLabel() { return m_label; }
+	UINT		 GetType()   { return m_type; }
+	UINT		 GetID()     { return m_ID; }
 };
 
 class MenuContext : public Control
 {
 protected:
-	HMENU                    m_hMenu;
-	vector<MenuItemBase>     m_items;
+	HMENU                      m_hMenu;
+	std::vector<MenuItemBase>  m_items;
 
 public:
 	MenuContext() : Control(CtrlType::MENUCONTEXT),
@@ -501,13 +510,13 @@ class MenuBarItem
 {
 protected:
 
-	HMENU                  m_hMenu;
-	string                 m_text;
+	HMENU						m_hMenu;
+	std::string					m_text;
 
-	vector<MenuItemBase>   m_items;
+	std::vector<MenuItemBase>	m_items;
 
 public:
-	MenuBarItem(string lab = "") : m_text(lab),
+	MenuBarItem(std::string lab = "") : m_text(lab),
 		m_hMenu()
 	{
 
@@ -542,7 +551,7 @@ public:
 		m_items.push_back(item);
 	}
 
-	void SetText(string txt)
+	void SetText(std::string txt)
 	{
 		m_text = txt;
 	}
@@ -577,8 +586,8 @@ public:
 class MenuBar : public Control
 {
 public:
-	HMENU               m_hMenuBar;
-	vector<MenuBarItem> m_items;
+	HMENU					 m_hMenuBar;
+	std::vector<MenuBarItem> m_items;
 
 public:
 	MenuBar() : Control(CtrlType::MENUBAR)
@@ -602,7 +611,7 @@ protected:
 			}
 			else
 			{
-				cout << "[X]  Create Menubar failed ! " << endl;
+				std::cout << "[X]  Create Menubar failed ! " << std::endl;
 			}
 		}
 		return true;
@@ -668,14 +677,14 @@ private:
 	bool		m_track_leave;
 
 protected:
-	int         m_x;
-	int         m_y;
-	UINT        m_width;
-	UINT        m_height;
+	int				m_x;
+	int				m_y;
+	UINT			m_width;
+	UINT			m_height;
 
-	wstring     m_label;
-	BtnState    m_eState;
-	BtnState	m_eOldState;
+	std::wstring	m_label;
+	BtnState		m_eState;
+	BtnState		m_eOldState;
 
 	HBITMAP hBmp;
 	Gdiplus::Brush* m_background_normal;
@@ -748,7 +757,7 @@ public:
 		m_width = width;
 		m_height = height;
 	}
-	void SetLabel(wstring lab) { m_label = lab; }
+	void SetLabel(std::wstring lab) { m_label = lab; }
 
 public:
 	int OnInitControl(UINT& IDS)
@@ -1047,8 +1056,8 @@ public:
 
 struct CBB_ITEM
 {
-	wstring     text; // dữ liệu text hiển thị trên cbb
-	void*       data; // dữ liêu của item tự định nghĩa và kiểm soát
+	std::wstring     text; // dữ liệu text hiển thị trên cbb
+	void*            data; // dữ liêu của item tự định nghĩa và kiểm soát
 };
 
 class Combobox : public Control
@@ -1063,7 +1072,7 @@ private:
 	bool             m_editText;
 
 	int              selected;
-	vector<CBB_ITEM> items;
+	std::vector<CBB_ITEM> items;
 
 
 	void(*m_EventSelectedChangedFun)(Window*, Combobox*) = NULL;
@@ -1164,7 +1173,7 @@ public:
 	}
 
 	// Chú ý cần clone và tạo data bằng new 
-	void AddItem(wstring text, void* data = NULL)
+	void AddItem(std::wstring text, void* data = NULL)
 	{
 		CBB_ITEM    item;
 		item.text = text;
@@ -1176,7 +1185,7 @@ public:
 	//===================================================================================
 	// Xóa một item được chỉ định bằng text : tất cả các item có text sẽ bị xóa          
 	//===================================================================================
-	void RemoveItem(wstring text)
+	void RemoveItem(std::wstring text)
 	{
 		for (auto it = items.begin(); it != items.end(); /*it++*/)
 		{
@@ -1236,7 +1245,7 @@ public:
 	//===================================================================================
 	// Lấy text của item dựa vào index                                                   
 	//===================================================================================
-	wstring GetItemText(int index)
+	std::wstring GetItemText(int index)
 	{
 		if (index < 0 || index >= items.size())
 		{
@@ -1262,7 +1271,7 @@ public:
 	//===================================================================================
 	// Lấy giá trị text của item selected                                                
 	//===================================================================================
-	wstring GetSelectText()
+	std::wstring GetSelectText()
 	{
 		GetSelectIndexItem();
 		if (selected < 0 || selected >= items.size())
@@ -1446,3 +1455,7 @@ public:
 		return Control::OnInitControl(IDS);
 	}
 };
+
+____END_NAMESPACE____
+
+#endif // WGLCTRL_H

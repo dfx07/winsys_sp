@@ -1,4 +1,5 @@
-﻿/*!*********************************************************************************
+﻿////////////////////////////////////////////////////////////////////////////////////
+/*!*********************************************************************************
 * @Copyright (C) 2021-2022 thuong.nv <thuong.nv.mta@gmail.com>
 *            All rights reserved.
 ************************************************************************************
@@ -15,39 +16,68 @@
 #include <chrono>
 #include <ctime>
 
-
-//#if defined(_WIN32) || defined(_WIN64)
-//
-//#endif
-
 #include "xsysdef.h"
 
 ___BEGIN_NAMESPACE___
+
 
 /// ////////////////////////////////////////////////////////////////////////////////
 /// name  : MonitorInfo class
 /// brief : Provides a container for content encoded using multipart/form-data MIME type
 /// ////////////////////////////////////////////////////////////////////////////////
-struct MonitorInfo
+struct xMonitorInfo
 {
-	DWORD		  WIDTH;
-	DWORD		  HEIGHT;
-	DWORD		  DISFREQ;
-	DWORD		  VERSION;
-	std::string   NAME;
+	unsigned long  WIDTH   = 0;
+	unsigned long  HEIGHT  = 0;
+	unsigned long  DISFREQ = 0;
+	unsigned long  VERSION = 0;
+	std::string    NAME    = "";
 };
 
-#if defined(_WIN32) || defined(_WIN64)
 /// ////////////////////////////////////////////////////////////////////////////////
-/// GDIplusToken struct - WINDOW
-/// Provides a container GDI data
+/// name  : xTime class
+/// brief : Provides type and define common function time
 /// ////////////////////////////////////////////////////////////////////////////////
-//struct GDIplusToken
-//{
-//	ULONG_PTR						 m_id;
-//	Gdiplus::GdiplusStartupInput     m_prop;
-//};
-#endif
+interface xTime
+{
+protected:
+	typedef std::chrono::steady_clock::time_point	  time_pointer;
+	typedef std::chrono::duration<double>			  tduration;
+
+protected:
+
+	/***********************************************************************************
+	*! @brief  : get current time
+	*! @return : time_pointer : time point
+	*! @author : thuong.nv - [CreateDate] : 18/02/2023
+	************************************************************************************/
+	static time_pointer now()
+	{
+		return std::chrono::high_resolution_clock::now();
+	}
+
+	/***********************************************************************************
+	*! @brief  : get current time follow the specified format
+	*! @return : string
+	*! @param  : [in] format : "%Y-%m-%d %X"
+	*! @author : thuong.nv - [CreateDate] : 18/02/2023
+	*! @note   : https://www.programiz.com/python-programming/datetime/strftime
+	************************************************************************************/
+	static std::string time_now(IN const char* format = "%Y-%m-%d %X")
+	{
+		auto now = std::chrono::system_clock::now();
+		std::time_t end_time = std::chrono::system_clock::to_time_t(now);
+
+		struct tm  tstruct;
+		auto err = localtime_s(&tstruct, &end_time);
+		char buffer[128];
+		memset(buffer, 0, sizeof(buffer));
+
+		strftime(buffer, sizeof(buffer), format , &tstruct);
+
+		return std::string(buffer);
+	}
+};
 
 /// ////////////////////////////////////////////////////////////////////////////////
 /// name  : xBuffer class
@@ -142,7 +172,7 @@ protected:
 
 			delete[] old_data;
 		}
-		catch (std::exception& ex)
+		catch (std::exception&)
 		{
 			SAFE_DELETE_ARRAY(m_data);
 			m_capacity = m_length = 0;
@@ -253,7 +283,7 @@ protected:
 
 /// ////////////////////////////////////////////////////////////////////////////////
 /// name  : CBuffer class
-/// brief : Provides a container byte data
+/// Provides a container byte data
 /// ////////////////////////////////////////////////////////////////////////////////
 class Dllexport CBuffer : public xBuffer
 {
@@ -321,9 +351,9 @@ public:
 };
 
 /// ////////////////////////////////////////////////////////////////////////////////
-/// name  : CBufferRef class
-/// brief : Provides a container byte data not free data 
-/// note  : Contains only information without changing data
+/// Name  : CBufferRef class
+/// Provides a container byte data not free data 
+/// Note  : Contains only information without changing data
 /// ////////////////////////////////////////////////////////////////////////////////
 class Dllexport CBufferRef : public xBuffer
 {
@@ -380,248 +410,241 @@ public:
 };
 
 /// ////////////////////////////////////////////////////////////////////////////////
-/// CBuffer class
+/// Name  : CBuffer class
 /// Provides a container byte data
 /// ////////////////////////////////////////////////////////////////////////////////
-//class CFileBuffer
-//{
-//private:
-//	std::vector<unsigned char> m_data;
-//
-//public:
-//	CFileBuffer(const int& nsize = 0)
-//	{
-//		resize(nsize);
-//	}
-//public:
-//	void resize(const int& nsize)
-//	{
-//		m_data.resize(nsize);
-//	}
-//
-//	void set(void* data, const int& nsize)
-//	{
-//		// set data for vector data have null
-//		resize(nsize + 1);
-//		reset(nsize + 1, 0);
-//		memcpy_s(&m_data[0], nsize, data, nsize);
-//		// reset length vector data
-//		resize(nsize);
-//	}
-//
-//	void reset()
-//	{
-//		m_data.clear();
-//	}
-//
-//	void reset(const int nsize, const int& val = 0)
-//	{
-//		memset(&m_data[0], val, nsize);
-//	}
-//public:
-//	void* get() { return !m_data.empty() ? &m_data[0] : NULL; }
-//	int   size(){ return (int)m_data.size(); }
-//};
-//
-//class CTimer
-//{
-//	typedef std::chrono::steady_clock::time_point	TimePointer;
-//
-//private:
-//	TimePointer m_tstart;
-//
-//public:
-//	CTimer()
-//	{
-//		reset();
-//	}
-//public:
-//	static TimePointer now()
-//	{
-//		return std::chrono::high_resolution_clock::now();
-//	}
-//
-//	// default format : "%Y-%m-%d %X"
-//	// ref : https://www.programiz.com/python-programming/datetime/strftime
-//	static std::string time_now(const char* format = "%Y-%m-%d %X")
-//	{
-//		auto now = std::chrono::system_clock::now();
-//		std::time_t end_time = std::chrono::system_clock::to_time_t(now);
-//
-//		struct tm  tstruct;
-//		auto err = localtime_s(&tstruct, &end_time);
-//		char buffer[128];
-//		memset(buffer, 0, sizeof(buffer));
-//
-//		strftime(buffer, sizeof(buffer), format , &tstruct);
-//
-//		return std::string(buffer);
-//	}
-//
-//	void reset()
-//	{
-//		m_tstart = std::chrono::high_resolution_clock::now();
-//	}
-//	
-//	double seconds_elapsed()
-//	{
-//		TimePointer tend = std::chrono::high_resolution_clock::now();
-//		std::chrono::duration<double> elapsed = tend - m_tstart;
-//		m_tstart = tend;
-//		return elapsed.count();
-//	}
-//
-//	double mili_elapsed()
-//	{
-//		auto elp = seconds_elapsed();
-//		return elp * 1000.0;
-//	}
-//};
-//
-//class CStopwatch
-//{
-//	typedef std::chrono::steady_clock::time_point	time_pointer;
-//	typedef std::chrono::duration<double>			tduration;
-//private:
-//	time_pointer	m_start;
-//	time_pointer	m_tpre;
-//
-//	double		m_tstop;
-//
-//	double		m_dur;
-//	bool		m_bstop;
-//
-//public:
-//	CStopwatch() : m_dur(0.0),
-//		m_tstop(0.0), m_bstop(true)
-//	{
-//
-//	}
-//
-//public:
-//	void start()
-//	{
-//		m_bstop  = false;
-//		m_start  = std::chrono::high_resolution_clock::now();
-//		m_tpre   = m_start;
-//		m_dur    = 0.0;
-//		m_tstop  = 0.0;
-//	}
-//
-//	void stop()
-//	{
-//		if (m_bstop)
-//			return;
-//
-//		auto tps = std::chrono::high_resolution_clock::now();
-//		tduration elapsed = tps - m_tpre;
-//		m_tstop = elapsed.count();
-//		m_bstop = true;
-//	}
-//	void resume()
-//	{
-//		if (!m_bstop)
-//			return;
-//		m_tpre = std::chrono::high_resolution_clock::now();
-//		m_bstop = false;
-//	}
-//
-//	double lap()
-//	{
-//		if (m_bstop)
-//			return 0.0;
-//
-//		auto tps = std::chrono::high_resolution_clock::now();
-//		tduration elapsed = tps - m_tpre;
-//		m_dur = elapsed.count() + m_tstop;
-//		m_tstop = 0.0;
-//		m_tpre = tps;
-//
-//		return m_dur;
-//	}
-//
-//	bool is_stop()
-//	{
-//		return m_bstop;
-//	}
-//
-//	double all_time()
-//	{
-//		tduration elapsed = std::chrono::high_resolution_clock::now() - m_start;
-//		return elapsed.count();
-//	}
-//
-//	double seconds_elapsed()
-//	{
-//		return m_dur;
-//	}
-//
-//	double mili_elapsed()
-//	{
-//		return m_dur*1000.0;
-//	}
-//};
-//
-//class CFPSCounter
-//{
-//	typedef std::chrono::steady_clock::time_point	  time_pointer;
-//	typedef std::chrono::duration<double>			  tduration;
-//
-//private:
-//	int				m_fps;
-//	int				m_frames;
-//	double			m_elapsed;
-//
-//	time_pointer	m_last_frame;
-//
-//	double			m_reset;
-//
-//private:
-//	void reset()
-//	{
-//		m_frames = 0;
-//		m_reset  = 0.0;
-//	}
-//public:
-//	CFPSCounter() : m_fps(0), m_elapsed(0.0),
-//		m_reset(0.0), m_frames(0)
-//	{
-//
-//	}
-//
-//	void start()
-//	{
-//		m_last_frame = std::chrono::high_resolution_clock::now();
-//		this->reset();
-//	}
-//
-//	void update()
-//	{
-//		time_pointer cur_frame = std::chrono::high_resolution_clock::now();
-//		m_elapsed = tduration(cur_frame - m_last_frame).count();
-//		m_reset  += m_elapsed;
-//
-//		m_frames++;
-//
-//		if (m_reset >= 1.0)
-//		{
-//			m_fps = (int)(m_frames / m_reset);
-//			this->reset();
-//		}
-//
-//		m_last_frame = cur_frame;
-//	}
-//
-//public:
-//	int fps()
-//	{
-//		return this->m_fps;
-//	}
-//	double frametime() //miliseconds
-//	{
-//		return this->m_elapsed;
-//	}
-//};
+class Dllexport CFileBuffer
+{
+public:
+	CFileBuffer(const size_t& nsize = 0)
+	{
+		resize(nsize);
+	}
+
+public:
+	void resize(const size_t& nsize)
+	{
+		m_data.resize(nsize);
+	}
+
+	void set(void* data, const size_t& nsize)
+	{
+		// set data for vector data have null
+		resize(nsize + 1);
+		reset(nsize + 1, 0);
+		memcpy_s(&m_data[0], nsize, data, nsize);
+		// reset length vector data
+		resize(nsize);
+	}
+
+	void reset()
+	{
+		m_data.clear();
+	}
+
+	void reset(const size_t nsize, const int val = 0)
+	{
+		memset(&m_data[0], val, nsize);
+	}
+
+public:
+	void*  data() { return !m_data.empty() ? &m_data[0] : NULL; }
+	size_t size() { return m_data.size(); }
+
+private:
+	std::vector<unsigned char> m_data;
+};
+
+/// ////////////////////////////////////////////////////////////////////////////////
+/// Name  : CTimer class
+/// Provides a container byte data
+/// ////////////////////////////////////////////////////////////////////////////////
+class Dllexport CTimer : public xTime
+{
+public:
+	CTimer()
+	{
+		reset();
+	}
+
+public:
+	void reset()
+	{
+		m_tstart = xTime::now();
+	}
+	
+	/***********************************************************************************
+	*! @brief  : get time from previous retrieval
+	*! @return : double (seconds)
+	*! @author : thuong.nv - [CreateDate] : 18/02/2023
+	************************************************************************************/
+	double seconds_elapsed()
+	{
+		time_pointer tend = xTime::now();
+		tduration elapsed = tend - m_tstart;
+		m_tstart = tend;
+		return elapsed.count();
+	}
+
+	/***********************************************************************************
+	*! @brief  : get time from previous retrieval
+	*! @return : double (millisecond)
+	*! @author : thuong.nv - [CreateDate] : 18/02/2023
+	************************************************************************************/
+	double mili_elapsed()
+	{
+		auto elp = seconds_elapsed();
+		return elp * 1000.0;
+	}
+
+private:
+	time_pointer		m_tstart;
+};
+
+/// ////////////////////////////////////////////////////////////////////////////////
+/// Name  : CStopwatch class
+/// Provides a container byte data
+/// ////////////////////////////////////////////////////////////////////////////////
+class Dllexport CStopwatch : public xTime
+{
+public:
+	CStopwatch() : m_dur(0.0),
+		m_tstop(0.0), m_bstop(true)
+	{
+
+	}
+
+public:
+	void start()
+	{
+		m_bstop  = false;
+		m_start  = xTime::now();
+		m_tpre   = m_start;
+		m_dur    = 0.0;
+		m_tstop  = 0.0;
+	}
+
+	void stop()
+	{
+		if (m_bstop)
+			return;
+
+		auto tps = xTime::now();
+		tduration elapsed = tps - m_tpre;
+		m_tstop = elapsed.count();
+		m_bstop = true;
+	}
+	void resume()
+	{
+		if (!m_bstop)
+			return;
+		m_tpre  = xTime::now();
+		m_bstop = false;
+	}
+
+	double lap()
+	{
+		if (m_bstop)
+			return 0.0;
+
+		auto tps = xTime::now();
+		tduration elapsed = tps - m_tpre;
+		m_dur = elapsed.count() + m_tstop;
+		m_tstop = 0.0;
+		m_tpre = tps;
+
+		return m_dur;
+	}
+
+	bool is_stop()
+	{
+		return m_bstop;
+	}
+
+	double all_time()
+	{
+		tduration elapsed = xTime::now() - m_start;
+		return elapsed.count();
+	}
+
+	double seconds_elapsed()
+	{
+		return m_dur;
+	}
+
+	double mili_elapsed()
+	{
+		return m_dur*1000.0;
+	}
+
+private:
+	time_pointer	m_start;
+	time_pointer	m_tpre;
+
+	double			m_tstop;
+
+	double			m_dur;
+	bool			m_bstop;
+};
+
+/// ////////////////////////////////////////////////////////////////////////////////
+/// Name  : CFPSCounter class
+/// Provides a container byte data
+/// ////////////////////////////////////////////////////////////////////////////////
+class Dllexport CFPSCounter : public xTime
+{
+public:
+	CFPSCounter() : m_fps(0), m_elapsed(0.0),
+		m_reset(0.0), m_frames(0)
+	{
+
+	}
+
+	void start()
+	{
+		m_last_frame = xTime::now();
+		m_frames = 0;
+		m_reset = 0.0;
+	}
+
+	void update()
+	{
+		time_pointer cur_frame = xTime::now();
+		m_elapsed = tduration(cur_frame - m_last_frame).count();
+		m_reset += m_elapsed;
+
+		m_frames++;
+
+		if (m_reset >= 1.0)
+		{
+			m_fps = (int)(m_frames / m_reset);
+			m_frames = 0;
+			m_reset = 0.0;
+		}
+
+		m_last_frame = cur_frame;
+	}
+
+public:
+	int fps()
+	{
+		return this->m_fps;
+	}
+
+	double frametime() //miliseconds
+	{
+		return this->m_elapsed;
+	}
+
+private:
+	unsigned int	m_fps;
+	unsigned int	m_frames;
+	double			m_elapsed;
+
+	time_pointer	m_last_frame;
+
+	double			m_reset;
+};
 
 ____END_NAMESPACE____
 

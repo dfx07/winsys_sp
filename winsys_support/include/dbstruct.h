@@ -4,6 +4,7 @@
 #include <memory>
 #include <map>
 #include <assert.h>
+#include <vector>
 
 #include "xsysdef.h"
 
@@ -11,7 +12,7 @@
 	1/ data value
 */
 
-___NAMESPACE_BEGIN___
+___BEGIN_NAMESPACE___
 
 class CDataValue;
 class CDataRow;
@@ -430,4 +431,4 @@ public:
 	}
 };
 
-___NAMESPACE_END___
+____END_NAMESPACE____

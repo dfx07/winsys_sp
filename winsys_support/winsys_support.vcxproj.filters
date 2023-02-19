@@ -24,7 +24,7 @@
     <ClInclude Include="include\xsystype.h">
       <Filter>Header Files\sys</Filter>
     </ClInclude>
-    <ClInclude Include="include\sysutils.h">
+    <ClInclude Include="include\xsysutils.h">
       <Filter>Header Files\sys</Filter>
     </ClInclude>
     <ClInclude Include="include\dbstruct.h">
@@ -42,7 +42,7 @@
     <ClInclude Include="include\wglhandle.h">
       <Filter>Header Files\graphics</Filter>
     </ClInclude>
-    <ClInclude Include="include\wctrl.h">
+    <ClInclude Include="include\wglctrl.h">
       <Filter>Header Files\graphics</Filter>
     </ClInclude>
     <ClInclude Include="include\xsystrace.h">

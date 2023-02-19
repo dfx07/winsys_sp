@@ -1,11 +1,16 @@
 ﻿////////////////////////////////////////////////////////////////////////////////////
-// File: GLWindow.cpp   -- Create and handle event window                           
-// Copyright (C) 2020-2021 Thuong.NV   Created : 31/08/2021                         
-// For conditions of distribution and use, see copyright notice in readme.txt       
-////////////////////////////////////////////////////////////////////////////////////
-#pragma once
+/*!*********************************************************************************
+* @Copyright (C) 2021-2022 thuong.nv <thuong.nv.mta@gmail.com>
+*            All rights reserved.
+************************************************************************************
+* @file     wglhandle.h
+* @create   Nov 15, 2022
+* @brief    Create and handle event window
+* @note     For conditions of distribution and use, see copyright notice in readme.txt
+************************************************************************************/
+#ifndef WGLHANDLE_H
+#define WGLHANDLE_H
 
-#include <iostream>
 #include <assert.h>
 
 #include <stdlib.h>
@@ -14,9 +19,7 @@
 
 #include <map>
 #include <stack>
-#include <gdiplus.h>
 #include <mutex>
-
 
 #include <chrono>
 #include <windows.h>
@@ -25,14 +28,13 @@
 #include "GL/glew.h"
 #include "GL/wglew.h"
 
-#include "wctrl.h"
+#include "wglctrl.h"
 #include "glrender.h"
-#include "systruct.h"
+#include "xsystype.h"
 
 #pragma comment (lib,"Gdiplus.lib")
 #pragma comment (lib,"opengl32.lib")
 #pragma comment (lib,"glew32.lib")
-
 
 #define addAtribute(attribs, name, value)\
 {\
@@ -51,6 +53,18 @@
 
 #define   GL_PRESSED    1
 #define   GL_RELEASE    0
+
+___BEGIN_NAMESPACE___
+
+/// ////////////////////////////////////////////////////////////////////////////////
+/// GDIplusToken struct - WINDOW
+/// Provides a container GDI data
+/// ////////////////////////////////////////////////////////////////////////////////
+struct GDIplusToken
+{
+	ULONG_PTR						 m_id;
+	Gdiplus::GdiplusStartupInput     m_prop;
+};
 
 //Không sử dụng Graphics vì nó bị đỏ khi Bug khó chịu @^@
 typedef Gdiplus::Graphics                   WndGDIplus;
@@ -1299,7 +1313,7 @@ private:
 			SetWindowLong(m_hWnd, GWL_EXSTYLE, m_pProp.m_dwExStyle);
 
 			// On expand, if we're given a window_rect, grow to it, otherwise do not resize.
-			MonitorInfo monitor = fox::get_monitorinfo();
+			xMonitorInfo monitor = fox::get_monitorinfo();
 			SetWindowPos(m_hWnd, NULL, 0, 0, monitor.WIDTH, monitor.HEIGHT, SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 
 			// Update width ,height screen
@@ -2165,3 +2179,7 @@ void fox_destroy_window(Window* win)
 //	}
 //};
 //
+
+____END_NAMESPACE____
+
+#endif // WGLHANDLE_H

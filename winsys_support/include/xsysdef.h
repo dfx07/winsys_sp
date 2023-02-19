@@ -1,4 +1,5 @@
-﻿/*!*********************************************************************************
+﻿////////////////////////////////////////////////////////////////////////////////////
+/*!*********************************************************************************
 * @Copyright (C) 2021-2022 thuong.nv <thuong.nv.mta@gmail.com>
 *            All rights reserved.
 ************************************************************************************
@@ -16,6 +17,9 @@
 #undef  OUT
 #define OUT /*OUTPUT*/
 
+#undef  interface
+#define interface struct /*interface*/
+
 #define ___BEGIN_NAMESPACE___ namespace fox	  {
 #define ____END_NAMESPACE____				  }
 #define	____USE_NAMESPACE____ using namespace fox;
@@ -29,15 +33,5 @@
 
 #define SAFE_DELETE(p) {delete p; p = NULL;}
 #define SAFE_DELETE_ARRAY(p) {delete[] p; p = NULL;}
-
-// Window define
-#if defined(_WIN32) || defined(_WIN64)
-	#include <Windows.h>
-
-// Linux define
-#else 
-	typedef unsigned long		DWORD
-	typedef unsigned short      WORD;
-#endif
 
 #endif // XSYSDEF_H

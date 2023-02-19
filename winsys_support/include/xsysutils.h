@@ -1,7 +1,19 @@
-﻿#pragma once
+﻿////////////////////////////////////////////////////////////////////////////////////
+/*!*********************************************************************************
+* @Copyright (C) 2021-2022 thuong.nv <thuong.nv.mta@gmail.com>
+*            All rights reserved.
+************************************************************************************
+* @file     xsystype.h
+* @create   Nov 15, 2022
+* @brief    Defines the data types used in the library
+* @note     For conditions of distribution and use, see copyright notice in readme.txt
+************************************************************************************/
+#ifndef XSYSUTILS_H
+#define XSYSUTILS_H
+
 #include <iostream>
-#include <memory>
 #include <Windows.h>
+#include <memory>
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -12,6 +24,83 @@
 
 ___BEGIN_NAMESPACE___
 
+#ifdef defined(_WIN32) || defined(_WIN64)
+#include <Dbghelp.h>
+#include <tchar.h>
+
+// ================================== HANDLE- CRASH ==========================================//
+// define function create dump file
+typedef BOOL(WINAPI* MINIDUMPWRITEDUMP)( HANDLE        hProcess,
+                                         DWORD         dwPid,
+                                         HANDLE        hFile,
+                                         MINIDUMP_TYPE DumpType,
+                                         CONST PMINIDUMP_EXCEPTION_INFORMATION ExceptionParam, 
+                                         CONST PMINIDUMP_USER_STREAM_INFORMATION UserStreamParam, 
+                                         CONST PMINIDUMP_CALLBACK_INFORMATION CallbackParam);
+
+/***********************************************************************************
+*! @brief  : function create dump file when app crashed [WINDOW]
+*! @return : bool : true : success | false : failed
+*! @author : thuong.nv - [CreateDate] : 18/02/2023
+*! @note   :+ Setup application : Windpb preview
+*           + Run program to crash ->*.dmp
+*           + Click Analysis and export file *.txt
+************************************************************************************/
+bool create_dump_file(IN const std::wstring& path, IN struct _EXCEPTION_POINTERS* apExceptionInfo)
+{
+    HMODULE mhLib = ::LoadLibrary(_T("dbghelp.dll"));
+    if (!mhLib)
+        return false;
+    auto pDump = (MINIDUMPWRITEDUMP)(::GetProcAddress(mhLib, "MiniDumpWriteDump"));
+
+    HANDLE  hFile = ::CreateFile(path.c_str(), GENERIC_WRITE, FILE_SHARE_WRITE, NULL, CREATE_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL, NULL);
+
+    if (hFile && hFile != INVALID_HANDLE_VALUE)
+    {
+        _MINIDUMP_EXCEPTION_INFORMATION ExInfo;
+        ExInfo.ThreadId = ::GetCurrentThreadId();
+        ExInfo.ExceptionPointers = apExceptionInfo;
+        ExInfo.ClientPointers = FALSE;
+
+        MINIDUMP_TYPE mdt = (MINIDUMP_TYPE)(MiniDumpWithIndirectlyReferencedMemory | MiniDumpScanMemory);
+
+        pDump(GetCurrentProcess(), GetCurrentProcessId(), hFile, mdt, &ExInfo, NULL, NULL);
+        ::CloseHandle(hFile);
+
+        return true;
+    }
+    return false;
+}
+
+/***********************************************************************************
+*! @brief  : function handle crash program  [WINDOW]
+*! @return : LONG : flag crash
+*! @author : thuong.nv - [CreateDate] : 18/02/2023
+*! @note   :+ Please use if hanlde crash: SetUnhandledExceptionFilter(handle_crash)
+************************************************************************************/
+LONG WINAPI handle_crash(IN struct _EXCEPTION_POINTERS* apExceptionInfo)
+{
+    TCHAR	szAppFullPath[MAX_PATH] = L"";
+    ::GetModuleFileName(NULL, szAppFullPath, MAX_PATH);
+
+    std::wstring dumpfileFolder = get_folder_path<std::wstring>(szAppFullPath);
+    std::wstring dumpfileName = get_filename_path<std::wstring>(szAppFullPath);
+    MessageBox(NULL, L"The program terminates abnormally, please restart !", L"Crash", MB_ICONHAND | MB_OK);
+
+    if (dumpfileName.empty() || dumpfileFolder.empty())
+        return EXCEPTION_CONTINUE_EXECUTION;
+    dumpfileFolder.append(L"DumpLoger\\");
+
+    if (!create_directory_recursive(dumpfileFolder))
+        return EXCEPTION_CONTINUE_EXECUTION;
+
+    create_dump_file(dumpfileFolder.append(dumpfileName.append(L".dmp")), apExceptionInfo);
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
+#endif // defined(_WIN32) || defined(_WIN64)
+
 /******************************************************************************
 *! @brief  : Read bytes data file
 *! @author : thuong.nv - [Date] : 03/10/2022
@@ -20,20 +109,28 @@ ___BEGIN_NAMESPACE___
 int read_data_file(IN const wchar_t* path, OUT void** data)
 {
     if (data) *data = NULL;
-    int nbytes = 0;
+    long int nbytes = 0;
     // open and read file share data
     FILE* file = _wfsopen(path, L"rb", _SH_DENYRD);
     if (!file) return nbytes;
 
     // read number of bytes file size 
     fseek(file, 0L, SEEK_END);
-    nbytes = static_cast<int>(ftell(file));
+    nbytes = static_cast<long int>(ftell(file));
     fseek(file, 0L, SEEK_SET);
 
+    if (nbytes < 0) // ftell failed
+    {
+        fclose(file); return 0;
+    }
+
+    // 2 null value (char and wide char)
+    nbytes = nbytes + 2; 
+
     // read data form file to memory
-    auto tbuff = new unsigned char[nbytes + 2];
-    memset(tbuff, 0, (nbytes + 2));
-    nbytes = (int)fread_s(tbuff, nbytes, sizeof(char), nbytes, file);
+    auto tbuff = new unsigned char[nbytes];
+    memset(tbuff, 0, nbytes);
+    nbytes = (long int)fread_s(tbuff, nbytes, sizeof(char), nbytes, file);
     fclose(file);
 
     // Read content bytes file + nbyte read
@@ -41,9 +138,10 @@ int read_data_file(IN const wchar_t* path, OUT void** data)
     else delete[] tbuff;
     return nbytes;
 }
+
 CFileBuffer* read_data_file(IN const wchar_t* path)
 {
-    int nbytes = 0;
+    long nbytes = 0;
     // open and read file share data
     FILE* file = _wfsopen(path, L"rb", _SH_DENYRD);
     if (!file) return NULL;
@@ -53,9 +151,17 @@ CFileBuffer* read_data_file(IN const wchar_t* path)
     nbytes = static_cast<int>(ftell(file));
     fseek(file, 0L, SEEK_SET);
 
+    if (nbytes < 0) // ftell failed
+    {
+        fclose(file);  return 0;
+    }
+
+    // 2 null value (char and wide char)
+    nbytes = nbytes + 2;
+
     // read data form file to memory
-    CFileBuffer* cfbuff = new CFileBuffer(nbytes + 2);
-    nbytes = (int)fread_s(cfbuff->get(), nbytes, sizeof(char), nbytes, file);
+    CFileBuffer* cfbuff = new CFileBuffer(nbytes);
+    nbytes = (long int)fread_s(cfbuff->data(), nbytes, sizeof(char), nbytes, file);
     cfbuff->resize(nbytes);
 
     fclose(file);
@@ -86,7 +192,7 @@ bool write_data_file(IN const wchar_t* path, IN const void* data, IN const int& 
 ******************************************************************************/
 bool create_directory_recursive(IN const std::wstring& path)
 {
-    BOOL bret = CreateDirectory(path.c_str(), NULL);
+    BOOL bret = ::CreateDirectory(path.c_str(), NULL);
 
     if (bret)  return true;
     else
@@ -100,11 +206,37 @@ bool create_directory_recursive(IN const std::wstring& path)
 
             if (create_directory_recursive(subpath))
             {
-                return CreateDirectory(path.c_str(), NULL)? true : false;
+                return ::CreateDirectory(path.c_str(), NULL)? true : false;
             }
         }
     }
     return false;
+}
+
+/***************************************************************************
+*! @brief  : get information monitori
+*! @author : thuong.nv - [Date] : 08/10/2022
+*! @param    [In] void
+*! @return : struct MonitoInfo
+*! @note   : N/A
+***************************************************************************/
+xMonitorInfo get_monitorinfo()
+{
+    xMonitorInfo infor;
+    DEVMODE devmode;
+
+    devmode.dmSize = sizeof(DEVMODE);
+    BOOL bResult = EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devmode);
+
+    if (bResult)
+    {
+        infor.WIDTH = devmode.dmPelsWidth;
+        infor.HEIGHT = devmode.dmPelsHeight;
+        infor.DISFREQ = devmode.dmDisplayFrequency;
+        infor.VERSION = devmode.dmDriverVersion;
+        infor.NAME = std::string((const char*)&(devmode.dmDeviceName[0]), CCHDEVICENAME);
+    }
+    return infor;
 }
 
 /******************************************************************************
@@ -125,7 +257,7 @@ std::wstring from_utf8(IN const std::string& utf8)
 std::wstring from_utf8(IN const char* utf8, IN const int& nsize)
 {
     std::wstring utf16;
-    utf16.resize(nsize + 1, 0);
+    utf16.resize(size_t(nsize) + 1, 0);
     int nWide = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8,
         nsize, (LPWSTR)utf16.c_str(), (int)utf16.size());
     utf16.resize(nWide);
@@ -440,32 +572,6 @@ auto get_folder_path(const T& fpath, const int& bCheckExist = false)
 }
 
 /***************************************************************************
-*! @brief  : get information monitori
-*! @author : thuong.nv - [Date] : 08/10/2022
-*! @param    [In] void
-*! @return : struct MonitoInfo
-*! @note   : N/A
-***************************************************************************/
-MonitorInfo get_monitorinfo()
-{
-	MonitorInfo infor;
-	DEVMODE devmode;
-
-	devmode.dmSize = sizeof(DEVMODE);
-	BOOL bResult = EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devmode);
-
-	if (bResult)
-	{
-		infor.WIDTH = devmode.dmPelsWidth;
-		infor.HEIGHT = devmode.dmPelsHeight;
-		infor.DISFREQ = devmode.dmDisplayFrequency;
-		infor.VERSION = devmode.dmDriverVersion;
-		infor.NAME = std::string((const char*)&(devmode.dmDeviceName[0]), CCHDEVICENAME);
-	}
-	return infor;
-}
-
-/***************************************************************************
 *! @brief  : clamp value from min to max
 *! @author : thuong.nv - [Date] : 26/10/2022
 *! @param    [In] x : in range [min - max]
@@ -522,5 +628,6 @@ float soft_map(float x, float min_s, float max_s, float min_d, float max_d, floa
 	return value;
 }
 
-
 ____END_NAMESPACE____
+
+#endif // !XSYSUTILS_H
