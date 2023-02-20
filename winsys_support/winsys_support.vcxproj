@@ -145,7 +145,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\dbstruct.h" />
-    <ClInclude Include="include\sysreport.h" />
     <ClInclude Include="include\xsystype.h" />
     <ClInclude Include="include\xsysutils.h" />
     <ClInclude Include="include\wglctrl.h" />

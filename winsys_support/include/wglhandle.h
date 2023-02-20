@@ -250,6 +250,7 @@ struct WndProp
 	int                 m_iAntialiasing; // Antialiasing level = 8
 	int					m_iModeDraw;	 // 1 : use thread draw opengl | 0 :use pipe main thread
 	bool				m_writeinfo;
+	int					m_iAphaTrans = -1;
 
 
 	DWORD               m_dwExStyle;     // Window Extended Style
@@ -614,6 +615,7 @@ public:
 		}
 		case WM_ERASEBKGND:
 		{
+
 			return TRUE;
 		}
 		default:
@@ -1345,10 +1347,14 @@ private:
 					// Update size window after created
 					m_width = winState.m_width;
 					m_height = winState.m_height;
-
-					//ShowWindow(m_hWnd, SW_RESTORE);
 				}
 			}
+		}
+
+		if (m_pProp.m_iAphaTrans >= 0)
+		{
+			SetWindowLong(m_hWnd, GWL_EXSTYLE, GetWindowLong(m_hWnd, GWL_EXSTYLE) ^ WS_EX_LAYERED);
+			SetLayeredWindowAttributes(m_hWnd, RGB(0, 0, 0), m_pProp.m_iAphaTrans, LWA_ALPHA);
 		}
 	}
 	//======================================================================================
@@ -1419,7 +1425,7 @@ public:
 
 	void UpdateStyleWindow()
 	{
-		m_pProp.m_dwExStyle = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE;     // Window Extended Style
+		m_pProp.m_dwExStyle = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE ;     // Window Extended Style
 		m_pProp.m_dwStyle = WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_EX_TRANSPARENT;  // Windows Style
 																	//@@ WS_CLIPCHILDREN: Control của window sẽ không được vẽ khi SwapBuffer
 

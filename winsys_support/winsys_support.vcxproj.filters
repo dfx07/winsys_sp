@@ -30,9 +30,6 @@
     <ClInclude Include="include\dbstruct.h">
       <Filter>Header Files\sys</Filter>
     </ClInclude>
-    <ClInclude Include="include\sysreport.h">
-      <Filter>Header Files\sys</Filter>
-    </ClInclude>
     <ClInclude Include="include\xsysdef.h">
       <Filter>Header Files\sys</Filter>
     </ClInclude>

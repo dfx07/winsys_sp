@@ -40,12 +40,25 @@ enum CtrlType
 	LABEL,
 };
 
-
-struct win_draw_info
+/// ////////////////////////////////////////////////////////////////////////////////
+/// name  : Render information
+/// brief : Provides type and define common function time
+/// ////////////////////////////////////////////////////////////////////////////////
+typedef struct WINDRAW_INFO
 {
-	HDC  hDC = NULL;
-	RECT rect;
-};
+	HDC  hDC  = NULL;
+	RECT rect = RECT();
+
+} *WINDRAW_INFO_PTR;
+
+typedef struct GDIPLUS_DRAW_INFO
+{
+	Gdiplus::Graphics*  render;
+	Gdiplus::Rect		rect;
+
+} *GDIPLUS_DRAW_INFO_PTR;
+
+
 
 struct _Color4
 {
@@ -75,30 +88,37 @@ struct _Color4
 class MemDC
 {
 private:
-	HBITMAP		oldBmp;
-	HBITMAP		newBmp;
+	HBITMAP			oldBmp;
+	HBITMAP			newBmp;
 
-	HDC			m_oldhDC;
+	WINDRAW_INFO	m_origDrawInfo;
 public:
-	HDC			m_hDC;
-	RECT		m_rect;
+	WINDRAW_INFO	m_drawInfo;
+
 private:
 	void CreateBufferDC(const HDC& hdc,const RECT& rect)
 	{
-		m_oldhDC = hdc;
-		m_rect   = rect;
-		m_hDC  = CreateCompatibleDC(hdc);
-		newBmp = CreateCompatibleBitmap(hdc, rect.right - rect.left, rect.bottom - rect.top);
+		m_origDrawInfo.hDC  = hdc;
+		m_origDrawInfo.rect = rect;
+
+		// create new memory draw information
+		m_drawInfo.hDC  = CreateCompatibleDC(hdc);
+		m_drawInfo.rect = rect;
+
+		newBmp = CreateCompatibleBitmap(m_origDrawInfo.hDC,
+			m_origDrawInfo.rect.right  - m_origDrawInfo.rect.left,
+			m_origDrawInfo.rect.bottom - m_origDrawInfo.rect.top);
+
 		// we need to save original bitmap, and select it back when we are done,
 		// in order to avoid GDI leaks!
-		oldBmp = (HBITMAP)SelectObject(m_hDC, newBmp);
+		oldBmp = (HBITMAP)SelectObject(m_drawInfo.hDC, newBmp);
 	}
 
 	void DeleteBufferDC()
 	{
-		SelectObject(m_hDC, oldBmp); // select back original bitmap
-		DeleteObject(newBmp); // delete bitmap since it is no longer required
-		DeleteDC(m_hDC);   // delete memory DC since it is no longer required
+		SelectObject(m_drawInfo.hDC, oldBmp); // select back original bitmap
+		DeleteObject(newBmp);				  // delete bitmap since it is no longer required
+		DeleteDC(m_drawInfo.hDC);			  // delete memory DC since it is no longer required
 	}
 
 public:
@@ -108,13 +128,12 @@ public:
 	}
 
 public:
-	MemDC(const win_draw_info& dinfo)
+	MemDC(const WINDRAW_INFO& dinfo)
 	{
 		this->Init(dinfo.hDC, dinfo.rect);
 	}
 
-	MemDC():m_hDC(NULL), 
-		m_rect()
+	MemDC(): oldBmp(NULL), newBmp(NULL)
 	{
 		
 	}
@@ -124,22 +143,31 @@ public:
 		this->Init(_hdc, _rect);
 	}
 
+	WINDRAW_INFO_PTR GetDrawInfo()
+	{
+		if (m_drawInfo.hDC != NULL)
+		{
+			return &m_drawInfo;
+		}
+		return NULL;
+	}
+
 	void DrawRoundRect(const RECT& rect, const HPEN pen, const HBRUSH brush)
 	{
 		HGDIOBJ old_pen = NULL;
 		HGDIOBJ old_brush = NULL;
 
 		if (pen)
-			old_pen = SelectObject(m_hDC, pen);
+			old_pen = SelectObject(m_drawInfo.hDC, pen);
 
-		old_brush = SelectObject(m_hDC, brush);
+		old_brush = SelectObject(m_drawInfo.hDC, brush);
 
-		RoundRect(m_hDC, rect.left, rect.top, rect.right, rect.bottom, 0, 0);
+		RoundRect(m_drawInfo.hDC, rect.left, rect.top, rect.right, rect.bottom, 0, 0);
 
 		if (pen)
-			SelectObject(m_hDC, old_pen);
+			SelectObject(m_drawInfo.hDC, old_pen);
 
-		SelectObject(m_hDC, old_brush);
+		SelectObject(m_drawInfo.hDC, old_brush);
 	}
 
 	~MemDC()
@@ -149,7 +177,8 @@ public:
 
 	void Flush()
 	{
-		BitBlt(m_oldhDC, 0, 0, m_rect.right - m_rect.left, m_rect.bottom - m_rect.top, m_hDC, 0, 0, SRCCOPY);
+		BitBlt(m_origDrawInfo.hDC, 0, 0, m_drawInfo.rect.right - m_drawInfo.rect.left,
+			m_drawInfo.rect.bottom - m_drawInfo.rect.top, m_drawInfo.hDC, 0, 0, SRCCOPY);
 
 		// all done, now we need to cleanup
 		this->DeleteBufferDC();
@@ -162,51 +191,54 @@ private:
 	HBITMAP		oldBmp;
 	HBITMAP		newBmp;
 
-private:
-	HDC			m_oldhDC;
-private:
-	HDC			m_hDC;
-	RECT		m_rect;
+public:
+	WINDRAW_INFO		m_origDrawInfo;
+	WINDRAW_INFO		m_drawInfo;
 
 public:
-	Gdiplus::Graphics*	m_render;
-	Gdiplus::Rect		m_rect_render;
+	GDIPLUS_DRAW_INFO	m_renderInfo;
 
 	Gdiplus::Font*		m_font_render;
 
 private:
 	void CreateBufferRender(const HDC& hdc, const RECT& rect)
 	{
-		m_oldhDC = hdc;
-		m_rect   = rect;
-		m_hDC = CreateCompatibleDC(hdc);
-		newBmp = CreateCompatibleBitmap(hdc, rect.right - rect.left, rect.bottom - rect.top);
-		oldBmp = (HBITMAP)SelectObject(m_hDC, newBmp);
+		m_origDrawInfo.hDC  = hdc;
+		m_origDrawInfo.rect = rect;
+
+		m_drawInfo.hDC  = CreateCompatibleDC(hdc);
+		m_drawInfo.rect = rect;
+
+		newBmp = CreateCompatibleBitmap(m_origDrawInfo.hDC, 
+										m_origDrawInfo.rect.right  - m_origDrawInfo.rect.left,
+										m_origDrawInfo.rect.bottom - m_origDrawInfo.rect.top);
+
+		oldBmp = (HBITMAP)SelectObject(m_drawInfo.hDC, newBmp);
 
 		// gdiplus render main
-		m_render = Gdiplus::Graphics::FromHDC(m_hDC);
-		m_render->SetSmoothingMode(Gdiplus::SmoothingModeHighQuality);
-		m_rect_render = GDIplusRender::ConvertToGdiplusRect(rect, -2, -2);
+		m_renderInfo.render = Gdiplus::Graphics::FromHDC(m_drawInfo.hDC);
+		m_renderInfo.render->SetSmoothingMode(Gdiplus::SmoothingModeHighQuality);
+		m_renderInfo.rect   = GDIplusRender::ConvertToGdiplusRect(rect, -2, -2);
 	}
 
 	void DeleteBufferRender()
 	{
-		delete m_render; m_render = NULL;
-		SelectObject(m_hDC, oldBmp); // select back original bitmap
-		DeleteObject(newBmp); // delete bitmap since it is no longer required
-		DeleteDC(m_hDC);   // delete memory DC since it is no longer required
+		SAFE_DELETE(m_renderInfo.render);
+		SAFE_DELETE(m_font_render);
+
+		SelectObject(m_drawInfo.hDC, oldBmp);	// select back original bitmap
+		DeleteObject(newBmp);					// delete bitmap since it is no longer required
+		DeleteDC(m_drawInfo.hDC);				// delete memory DC since it is no longer required
 	}
 
 public:
-	GDIplusRender(): m_render(NULL),
-		m_hDC(NULL),
-		m_font_render(NULL)
+	GDIplusRender(): m_font_render(NULL)
 	{
 
 	}
+
 	~GDIplusRender()
 	{
-		delete m_font_render;
 		this->Flush();
 	}
 
@@ -219,15 +251,17 @@ public:
 	{
 		Gdiplus::FontFamily   fontFamily(L"Arial");
 
-		delete m_font_render;
-		m_font_render = new Gdiplus::Font(&fontFamily, 12, Gdiplus::FontStyleBold, Gdiplus::UnitPoint);
+		if (m_font_render == NULL)
+		{
+			m_font_render = new Gdiplus::Font(&fontFamily, 12, Gdiplus::FontStyleBold, Gdiplus::UnitPoint);
+		}
 	}
 
 	void Flush()
 	{
-
 		// TODO: http://www.winprog.org/tutorial/transparency.html
-		BitBlt(m_oldhDC, 0, 0, m_rect.right - m_rect.left, m_rect.bottom - m_rect.top, m_hDC, 0, 0, SRCCOPY);
+		BitBlt(m_origDrawInfo.hDC, 0, 0, m_origDrawInfo.rect.right - m_origDrawInfo.rect.left,
+			m_origDrawInfo.rect.bottom - m_origDrawInfo.rect.top, m_drawInfo.hDC, 0, 0, SRCCOPY);
 
 		// all done, now we need to cleanup
 		this->DeleteBufferRender();
@@ -252,8 +286,7 @@ private:
 		path.AddLine(rect.X + radius, rect.Y, rect.X + rect.Width - (radius * 2), rect.Y);
 		path.AddArc(rect.X + rect.Width - (radius * 2), rect.Y, radius * 2, radius * 2, 270, 90);
 		path.AddLine(rect.X + rect.Width, rect.Y + radius, rect.X + rect.Width, rect.Y + rect.Height - (radius * 2));
-		path.AddArc(rect.X + rect.Width - (radius * 2), rect.Y + rect.Height - (radius * 2), radius * 2,
-			radius * 2, 0, 90);
+		path.AddArc(rect.X + rect.Width - (radius * 2), rect.Y + rect.Height - (radius * 2), radius * 2, radius * 2, 0, 90);
 		path.AddLine(rect.X + rect.Width - (radius * 2), rect.Y + rect.Height, rect.X + radius, rect.Y + rect.Height);
 		path.AddArc(rect.X, rect.Y + rect.Height - (radius * 2), radius * 2, radius * 2, 90, 90);
 		path.AddLine(rect.X, rect.Y + rect.Height - (radius * 2), rect.X, rect.Y + radius);
@@ -294,21 +327,21 @@ private:
 public:
 	void DrawRectangle(const Gdiplus::Pen* pen, const Gdiplus::Brush* brush, int radius)
 	{
-		if (!m_render) return;
+		if (!m_renderInfo.render) return;
 
 		if(brush)
-			GDIplusRender::funcFillRoundRectangle(this->m_render, brush, this->m_rect_render, radius);
+			GDIplusRender::funcFillRoundRectangle(m_renderInfo.render, brush, this->m_renderInfo.rect, radius);
 		if(pen)
-			GDIplusRender::funcDrawRoundRectangle(this->m_render, pen, this->m_rect_render, radius);
+			GDIplusRender::funcDrawRoundRectangle(m_renderInfo.render, pen, this->m_renderInfo.rect, radius);
 	}
 
 	void DrawTextFullRect(const wchar_t* text, const Gdiplus::Brush* brush, const Gdiplus::StringFormat* stringFormat = NULL)
 	{
-		if (!m_render || !brush || !m_font_render) return;
+		if (!m_renderInfo.render || !brush || !m_font_render) return;
 
-		Gdiplus::RectF rectf = Rect2RectF(&this->m_rect_render);
+		Gdiplus::RectF rectf = Rect2RectF(&this->m_renderInfo.rect);
 
-		GDIplusRender::funDrawText(this->m_render, &rectf, text, m_font_render, brush, stringFormat);
+		GDIplusRender::funDrawText(m_renderInfo.render, &rectf, text, m_font_render, brush, stringFormat);
 	}
 };
 
@@ -783,6 +816,9 @@ public:
 		}
 		getproc() = (WNDPROC)SetWindowLongPtr(m_hwnd, GWLP_WNDPROC, (LONG_PTR)&ButtonProcHandle);
 
+		//SetWindowLong(m_hwnd, GWL_EXSTYLE, GetWindowLong(m_hwnd, GWL_EXSTYLE) ^ WS_EX_LAYERED);
+		//SetLayeredWindowAttributes(m_hwnd, RGB(0, 0, 0), 255, LWA_ALPHA);
+
 		return Control::OnInitControl(IDS);
 	}
 
@@ -856,7 +892,6 @@ public:
 			return (INT_PTR)GetStockObject((HOLLOW_BRUSH));
 		}
 		}
-
 		return CallWindowProc(getproc(), hwndBtn, uMsg, wParam, lParam);
 	}
 
@@ -990,14 +1025,17 @@ public:
 
 	void DrawButtonText()
 	{
+		auto pDrawer = m_drawer.GetDrawInfo();
+		if (!pDrawer) return;
+
 		if (m_eState == BtnState::Click)
 		{
-			SetTextColor(m_drawer.m_hDC, RGB(255, 0, 0));
+			SetTextColor(pDrawer->hDC, RGB(255, 0, 0));
 		}
 
-		SetBkMode(m_drawer.m_hDC, TRANSPARENT);
+		SetBkMode(pDrawer->hDC, TRANSPARENT);
 
-		DrawText(m_drawer.m_hDC, m_label.c_str(), -1, &m_drawer.m_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+		DrawText(pDrawer->hDC, m_label.c_str(), -1, &pDrawer->rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 	}
 
 	void Draw(LPDRAWITEMSTRUCT& pdis)
