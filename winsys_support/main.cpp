@@ -113,6 +113,17 @@ void Draw(Window* win)
     //a += 0.5* win->GetFrameTime();
 }
 
+void btnenter(Window* win, Button* btn)
+{
+	btn->SetLabel(L">> 조선말 <<");
+}
+
+void btnleave(Window* win, Button* btn)
+{
+	btn->SetLabel(L"조선말");
+	std::cout << "leave" << std::endl;
+}
+
 int main()
 {
     WndProp adven;
@@ -138,6 +149,8 @@ int main()
     btn->SetLabel(L"조선말");
     btn->SetPosition(10, 30);
     btn->SetSize(300, 100);
+	btn->SetEventEnterCallBack(btnenter);
+	btn->SetEventLeaveCallBack(btnleave);
 
     Button* btn1 = new Button();
     btn1->SetLabel(L"조선말");
@@ -164,14 +177,6 @@ int main()
     win->SetProcessfunc(Process);
     win->SetOnMouseButtonfunc(MouseButton);
 
-    win->WriteSystemInfo(true);
-    win->AddControl(menu);
-    win->AddControl(btn);
-    win->AddControl(btn1);
-    win->AddControl(btn2);
-    win->AddControl(btn3);
-    //win->AddControl(cbb);
-    //win->AddControl(label);
 
     win->SetFont(L"Segoe UI", 14);
 

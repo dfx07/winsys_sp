@@ -957,8 +957,8 @@ public:
 		int bInitOk = FALSE;
 		if (register_window_class(L"DummyClass", WndDummyMainProc, GetModuleHandle(NULL)))
 		{
-			HWND hWnd_dummy = CreateWindowExA(
-				0, "DummyClass", "Dummy OpenGL Window", 0,
+			HWND hWnd_dummy = CreateWindowEx(
+				0, L"DummyClass", L"Dummy OpenGL Window", 0,
 				CW_USEDEFAULT, CW_USEDEFAULT,
 				CW_USEDEFAULT, CW_USEDEFAULT,
 				0, 0, NULL, 0);
